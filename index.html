@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Cupissa Domis</title><meta name="robots" content="noindex,nofollow"><meta name="theme-color" content="#000000">
+<link rel="manifest" href="manifest.json"><link rel="icon" href="logo/favicon.png"><link rel="apple-touch-icon" href="logo/icon-192.png">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<style>
+:root{--bg:#fafafa;--card:#fff;--tx:#0a0a0a;--mu:#737373;--ac:#0a0a0a;--on:#fff;--bd:#e5e5e5;--rd:#b3261e}
+*{box-sizing:border-box}body{margin:0;font:15px system-ui,sans-serif;background:var(--bg);color:var(--tx)}
+header{display:flex;gap:8px;align-items:center;justify-content:space-between;padding:10px 14px;background:var(--card);border-bottom:1px solid var(--bd);position:sticky;top:0;z-index:5;flex-wrap:wrap}
+nav{display:flex;gap:6px;flex-wrap:wrap}main{max-width:900px;margin:0 auto;padding:14px}
+.card{background:var(--card);border:1px solid var(--bd);border-radius:12px;padding:14px;margin-bottom:12px}
+.narrow{max-width:380px;margin:12vh auto}
+input,select,textarea,button{font:inherit;padding:9px 11px;border-radius:8px;border:1px solid var(--bd);background:var(--card);color:var(--tx);width:100%;margin:4px 0}
+button{background:var(--ac);color:var(--on);border:0;cursor:pointer;width:auto}
+button.s{background:transparent;color:var(--tx);border:1px solid var(--bd)}button.rd{background:var(--rd);color:var(--on)}
+.g{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:8px}
+.chip{font-size:12px;padding:2px 8px;border-radius:99px;border:1px solid var(--bd);color:var(--mu)}
+.mu{color:var(--mu);font-size:13px}.big{font-size:26px;font-weight:700}.row{display:flex;justify-content:space-between;gap:8px;align-items:center;flex-wrap:wrap}
+#modal{position:fixed;inset:0;background:#0009;display:none;align-items:center;justify-content:center;padding:12px;z-index:50}
+#modal>div{background:var(--card);border-radius:14px;padding:16px;max-width:420px;width:100%;max-height:90vh;overflow:auto}
+#sig{width:100%;height:160px;border:1px dashed var(--mu);border-radius:8px;touch-action:none;background:#fff}
+img{max-width:100%;border-radius:8px}#map{height:320px;border-radius:12px;margin-bottom:12px}
+table{width:100%;border-collapse:collapse}td,th{padding:6px;border-bottom:1px solid var(--bd);text-align:left;font-size:14px}
+.av{width:36px;height:36px;border-radius:50%;object-fit:cover;display:inline-flex;align-items:center;justify-content:center;background:var(--ac);color:var(--on);font-weight:700;vertical-align:middle;cursor:pointer}
+.pin{border:3px solid var(--ac);border-radius:50%;background:#fff;width:44px;height:44px;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px #0006}.pin .av{width:38px;height:38px}
+body{font:15px/1.5 -apple-system,"Helvetica Neue",Inter,Arial,sans-serif;-webkit-font-smoothing:antialiased;letter-spacing:-.005em}
+h2,h3{margin:.2em 0 .5em;font-weight:600;letter-spacing:-.02em}
+header{background:#ffffffe6;backdrop-filter:blur(10px);border-bottom:1px solid var(--tx)}
+.card{border-radius:14px;box-shadow:0 1px 2px #0000000d,0 8px 24px -12px #00000014}
+input,select,textarea{border-radius:10px;border-color:var(--bd);background:#fff}
+input:focus,select:focus,textarea:focus{outline:none;border-color:var(--tx);box-shadow:0 0 0 3px #0000001a}
+button{border-radius:999px;padding:9px 18px;font-weight:500;letter-spacing:.01em;transition:opacity .15s,transform .05s}
+button:hover{opacity:.85}button:active{transform:scale(.98)}
+button.s{background:#fff;color:var(--tx);border:1px solid var(--tx)}button.rd{background:#fff;color:var(--rd);border:1px solid var(--rd)}
+.chip{text-transform:uppercase;font-size:11px;letter-spacing:.06em;border-color:var(--tx);color:var(--tx);padding:2px 10px}
+.big{font-weight:600;letter-spacing:-.03em}.mu{color:var(--mu)}
+th{text-transform:uppercase;font-size:11px;letter-spacing:.06em;color:var(--mu);font-weight:500}
+a{color:var(--tx)}hr{border:0;border-top:1px solid var(--bd);margin:14px 0}
+.leaflet-tile-pane{filter:grayscale(1) contrast(1.05)}#map{border:1px solid var(--tx)}
+.pin{border-color:#000}.av{background:#000;color:#fff}
+</style></head><body>
+<div id="app"></div><div id="modal"><div></div></div>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script>
+const $=s=>document.querySelector(s),app=$('#app');
+const e=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const money=n=>'$'+Number(n||0).toLocaleString('es-CO'),fdt=d=>d?new Date(d).toLocaleString('es-CO',{dateStyle:'short',timeStyle:'short'}):'—';
+const TYPES={domicilio:'Domicilio',mandado:'Mandado',traslado:'Llevarme a un lugar'};
+const ST={pendiente:'Pendiente',asignado:'Asignado',en_camino:'En camino',entregado:'Entregado'};
+const openM=h=>{$('#modal>div').innerHTML=h;$('#modal').style.display='flex'},closeM=()=>{stm?.getTracks().forEach(t=>t.stop());$('#modal').style.display='none'};
+const shrink=(f,w,q)=>new Promise(r=>{const i=new Image();i.onload=()=>{const k=Math.min(1,w/i.width),c=document.createElement('canvas');c.width=i.width*k;c.height=i.height*k;c.getContext('2d').drawImage(i,0,0,c.width,c.height);r(c.toDataURL('image/jpeg',q))};i.src=URL.createObjectURL(f)});
+let stm,tmr,ip,cfg=JSON.parse(localStorage.getItem('cfg')||'null'),sb,me,C=[],chan,map,poll;
+
+const av=c=>c.avatar?`<img class="av" src="${c.avatar}">`:`<span class="av">${e((c.name||'?')[0])}</span>`;
+const insB=()=>`<button id="ins" class="s" style="display:${ip?'inline-block':'none'}" onclick="ip.prompt()">⬇ Instalar app</button>`;
+addEventListener('beforeinstallprompt',v=>{v.preventDefault();ip=v;document.querySelectorAll('#ins').forEach(b=>b.style.display='inline-block')});
+if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js');
+async function inv(){let{data}=await sb.from('settings').select('value').eq('key','invite').maybeSingle();if(data)return data.value;const v=crypto.randomUUID().slice(0,12);await sb.from('settings').insert({key:'invite',value:v});return v}
+async function plate(id){await sb.from('profiles').update({plate:$('#pl'+id).value.toUpperCase()}).eq('id',id);alert('Placa guardada')}
+async function delo(id){if(!confirm('¿Eliminar este servicio?'))return;await sb.from('orders').delete().eq('id',id);tab('pedidos')}
+async function delall(){if(prompt('Esto borra TODOS los servicios. Escribe BORRAR para confirmar')!='BORRAR')return;await sb.from('orders').delete().neq('id','00000000-0000-0000-0000-000000000000');tab('pedidos')}
+async function setAv(f){if(!f)return;me.avatar=await shrink(f,200,.8);await sb.from('profiles').update({avatar:me.avatar}).eq('id',me.id);courier()}
+async function cam(){try{stm=await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment'}});const v=$('#vid');v.srcObject=stm;v.style.display='block';$('#snap').style.display='inline-block';$('#cb').style.display='none'}catch{alert('No se pudo abrir la cámara. Revisa el permiso del navegador.')}}
+function snap(){const v=$('#vid'),c=document.createElement('canvas'),k=Math.min(1,800/v.videoWidth);c.width=v.videoWidth*k;c.height=v.videoHeight*k;c.getContext('2d').drawImage(v,0,0,c.width,c.height);photo=c.toDataURL('image/jpeg',.6);stm.getTracks().forEach(t=>t.stop());v.style.display='none';$('#snap').style.display='none';$('#prev').src=photo;$('#prev').style.display='block';$('#cb').style.display='inline-block';$('#cb').textContent='📷 Repetir foto'}
+if(!cfg){app.innerHTML=`<div class="card narrow"><h2>Conectar Supabase</h2><p class="mu">Project URL y anon public key (Settings &gt; API).</p><input id="u" placeholder="https://xxxx.supabase.co"><input id="k" placeholder="anon public key"><button onclick="localStorage.setItem('cfg',JSON.stringify({u:$('#u').value.trim(),k:$('#k').value.trim()}));location.reload()">Guardar</button></div>`}else init();
+
+async function init(){sb=supabase.createClient(cfg.u,cfg.k);const{data:{session}}=await sb.auth.getSession();session?start(session.user):login()}
+function login(){app.innerHTML=`<div class="card narrow" style="text-align:center"><img src="logo/logo.png" alt="Cupissa" style="max-height:70px;margin-bottom:8px" onerror="this.style.display='none'"><h2>Cupissa Domis</h2><input id="em" type="email" placeholder="Correo"><input id="pw" type="password" placeholder="Contraseña (mín. 6)"><div class="row"><button onclick="auth(1)">Entrar</button></div><p class="mu"><a href="#" onclick="auth(0);return false">Primera vez: crear administrador</a></p>${insB()}</div>`}
+async function auth(inn){const em=$('#em').value,pw=$('#pw').value;const r=inn?await sb.auth.signInWithPassword({email:em,password:pw}):await sb.auth.signUp({email:em,password:pw});
+ if(r.error)return alert(r.error.message);if(!r.data.session)return alert('Revisa tu correo para confirmar (o desactiva la confirmación en Supabase).');start(r.data.user)}
+async function out(){stop();clearInterval(poll);await sb.auth.signOut();location.reload()}
+async function start(u){const{data}=await sb.from('profiles').select('*').eq('id',u.id).single();me=data;if(!me)return alert('Perfil no encontrado');me.role=='admin'?admin():courier()}
+
+/* ---------- ADMIN ---------- */
+function admin(){app.innerHTML=`<header><span><img src="logo/logo.png" height="28" style="vertical-align:middle" onerror="this.style.display='none'"> <b>Cupissa Domis</b></span><nav>${[['pedidos','Servicios'],['equipo','Equipo y mapa'],['jornadas','Jornadas'],['ahorro','Ahorro']].map(t=>`<button class="s" onclick="tab('${t[0]}')">${t[1]}</button>`).join('')}</nav><button class="s" onclick="out()">Salir</button></header><main id="m"></main>`;tab('pedidos')}
+async function tab(t){clearInterval(tmr);if(chan){sb.removeChannel(chan);chan=0}if(map){map.remove();map=0}$('#m').innerHTML='Cargando…';await({pedidos,equipo,jornadas,ahorro})[t]()}
+const copts=s=>`<option value="">Sin asignar</option>`+C.map(c=>`<option value="${c.id}" ${c.id==s?'selected':''}>${e(c.name)}</option>`).join('');
+
+async function pedidos(){
+ const[a,b]=await Promise.all([sb.from('profiles').select('id,name').eq('role','courier'),sb.from('orders').select('id,type,client_name,client_phone,address,description,total,courier_id,status,created_at,delivered_at').order('created_at',{ascending:false}).limit(60)]);
+ C=a.data||[];const os=b.data||[];
+ $('#m').innerHTML=`<section class="card"><div class="row"><h3>Nuevo servicio</h3><button class="rd" onclick="delall()">Borrar todos</button></div><form id="f"><div class="g">
+ <select name="type">${Object.entries(TYPES).map(x=>`<option value="${x[0]}">${x[1]}</option>`).join('')}</select>
+ <input name="name" placeholder="Nombre del cliente"><input name="phone" placeholder="Teléfono" inputmode="tel">
+ <input name="address" placeholder="Dirección (o coordenadas 10.96,-74.78)" required>
+ <input name="total" type="number" placeholder="Total a cobrar" inputmode="numeric"><input name="cost" type="number" placeholder="🔒 Precio oculto (lo que pagarías)" inputmode="numeric">
+ <select name="courier">${copts()}</select></div><textarea name="desc" placeholder="Detalle del pedido / mandado"></textarea><button>Crear servicio</button></form></section>
+ ${os.map(o=>`<div class="card"><div class="row"><b>${TYPES[o.type]||o.type} · ${e(o.client_name)}</b><span class="chip">${ST[o.status]}</span></div>
+ <div class="mu">${e(o.address)} · ${e(o.client_phone)}</div><div>${e(o.description)}</div>
+ <div class="row"><b>${money(o.total)}</b><span class="mu">${fdt(o.created_at)}</span></div>
+ <div class="row"><select style="width:auto" onchange="assign('${o.id}',this.value)">${copts(o.courier_id)}</select><button class="rd" onclick="delo('${o.id}')">🗑 Eliminar</button>${o.status=='entregado'?`<button class="s" onclick="evid('${o.id}')">Ver evidencia · ${fdt(o.delivered_at)}</button>`:''}</div></div>`).join('')||'<p class="mu">Sin servicios aún.</p>'}`;
+ $('#f').onsubmit=async ev=>{ev.preventDefault();const d=Object.fromEntries(new FormData(ev.target));
+  const{data:o,error}=await sb.from('orders').insert({type:d.type,client_name:d.name,client_phone:d.phone,address:d.address,description:d.desc,total:+d.total||0,courier_id:d.courier||null,status:d.courier?'asignado':'pendiente'}).select('id').single();
+  if(error)return alert(error.message);if(d.cost)await sb.from('order_costs').insert({order_id:o.id,price:+d.cost});tab('pedidos')}}
+async function assign(id,c){await sb.from('orders').update({courier_id:c||null,status:c?'asignado':'pendiente'}).eq('id',id);tab('pedidos')}
+async function evid(id){const{data}=await sb.from('orders').select('photo,signature').eq('id',id).single();
+ openM(`<h3>Evidencia</h3>${data.photo?`<img src="${data.photo}">`:'<p class="mu">Sin foto</p>'}${data.signature?`<p class="mu">Firma del cliente</p><div style="background:#fff;border-radius:8px"><img src="${data.signature}"></div>`:'<p class="mu">Sin firma</p>'}<button onclick="closeM()">Cerrar</button>`)}
+
+async function equipo(){
+ const{data:cs}=await sb.from('profiles').select('id,name,phone,plate,avatar').eq('role','courier');C=cs||[];
+ $('#m').innerHTML=`<div id="map"></div><p id="seen" class="mu"></p><section class="card"><h3>Nuevo domiciliario</h3><form id="f"><div class="g"><input name="name" placeholder="Nombre" required><input name="phone" placeholder="Teléfono"><input name="plate" placeholder="Placa del vehículo" style="text-transform:uppercase"><input name="email" type="email" placeholder="Correo" required><input name="pw" placeholder="Contraseña (mín. 6)" required></div><button>Crear domiciliario</button></form></section>
+ ${C.map(c=>`<div class="card row"><span>${av(c)} <b>${e(c.name)}</b> <span class="mu">${e(c.phone)}</span></span><span><input id="pl${c.id}" value="${e(c.plate)}" placeholder="Placa" style="width:110px;text-transform:uppercase"> <button class="s" onclick="plate('${c.id}')">Guardar</button></span></div>`).join('')}`;
+ map=L.map('map').setView([10.96,-74.78],12);L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OpenStreetMap'}).addTo(map);
+ const mk={},tr={},seen={};let fit=0;
+ const put=r=>{const c=C.find(x=>x.id==r.courier_id)||{name:'?'},p=[r.lat,r.lng];
+  if(!mk[r.courier_id]){mk[r.courier_id]=L.marker(p,{icon:L.divIcon({className:'',html:`<div class="pin">${av(c)}</div>`,iconSize:[44,44],iconAnchor:[22,22]})}).addTo(map).bindTooltip(e(c.name)+(c.plate?' · '+e(c.plate):''));tr[r.courier_id]=L.polyline([],{color:'#000',weight:4}).addTo(map)}
+  const t=tr[r.courier_id],ll=t.getLatLngs(),l=ll[ll.length-1];if(!l||l.lat!=r.lat||l.lng!=r.lng){t.addLatLng(p);mk[r.courier_id].setLatLng(p)}
+  seen[r.courier_id]=r;$('#seen').innerHTML=Object.values(seen).map(x=>`${e((C.find(c=>c.id==x.courier_id)||{}).name)}: hace ${Math.round((Date.now()-new Date(x.updated_at))/1000)} s`).join(' · ')};
+ const load=async()=>{const{data}=await sb.from('locations').select('*');if(!data?.length){const s=$('#seen');if(s)s.textContent='Sin señal GPS: el domiciliario debe iniciar jornada.';return}data.forEach(put);if(!fit){fit=1;map.fitBounds(data.map(r=>[r.lat,r.lng]),{maxZoom:16,padding:[40,40]})}};
+ load();tmr=setInterval(load,6000);
+ chan=sb.channel('loc').on('postgres_changes',{event:'*',schema:'public',table:'locations'},p=>p.new&&put(p.new)).subscribe();
+ $('#f').onsubmit=async ev=>{ev.preventDefault();const d=Object.fromEntries(new FormData(ev.target));
+  const s2=supabase.createClient(cfg.u,cfg.k,{auth:{persistSession:false,autoRefreshToken:false,detectSessionInUrl:false}});
+  const{error}=await s2.auth.signUp({email:d.email,password:d.pw,options:{data:{name:d.name,phone:d.phone,plate:d.plate.toUpperCase(),code:await inv()}}});
+  if(error)return alert(error.message);alert('Domiciliario creado');tab('equipo')}}
+
+async function jornadas(){
+ const{data}=await sb.from('shifts').select('start_at,end_at,profiles(name)').order('start_at',{ascending:false}).limit(60);
+ $('#m').innerHTML=`<section class="card"><h3>Jornadas</h3><table><tr><th>Quién</th><th>Inicio</th><th>Fin</th><th>Horas</th></tr>${(data||[]).map(s=>`<tr><td>${e(s.profiles?.name)}</td><td>${fdt(s.start_at)}</td><td>${s.end_at?fdt(s.end_at):'En curso'}</td><td>${s.end_at?((new Date(s.end_at)-new Date(s.start_at))/36e5).toFixed(1):'—'}</td></tr>`).join('')}</table></section>`}
+
+async function ahorro(){
+ const mo=window.mo||new Date().toISOString().slice(0,7),[y,mn]=mo.split('-').map(Number),a=new Date(y,mn-1,1).toISOString(),b=new Date(y,mn,1).toISOString();
+ const[{data:cs},{data:st}]=await Promise.all([sb.from('order_costs').select('price,orders!inner(type,delivered_at)').gte('orders.delivered_at',a).lt('orders.delivered_at',b),sb.from('settings').select('*')]);
+ const sal=+((st||[]).find(x=>x.key=='salary')||{}).value||0,tot=(cs||[]).reduce((s,x)=>s+x.price,0),sv=tot-sal;
+ $('#m').innerHTML=`<section class="card"><div class="row"><h3>Ahorro vs. sueldo</h3><input type="month" value="${mo}" style="width:auto" onchange="window.mo=this.value;ahorro()"></div>
+ <div class="g"><div><div class="mu">Lo que habrías pagado (${(cs||[]).length} servicios)</div><div class="big">${money(tot)}</div></div><div><div class="mu">Sueldo pagado</div><div class="big">${money(sal)}</div></div><div><div class="mu">${sv>=0?'Ahorro':'Pérdida'} del mes</div><div class="big" style="color:${sv>=0?'var(--ac)':'var(--rd)'}">${money(Math.abs(sv))}</div></div></div></section>
+ <section class="card"><h3>Ajustes</h3><label class="mu">Sueldo mensual del domiciliario</label><input id="sal" type="number" value="${sal||''}"><button onclick="sset('salary',$('#sal').value)">Guardar sueldo</button>
+ <hr><label class="mu">QR de cobro (tu QR de Nequi/Bancolombia/etc.)</label><input type="file" accept="image/*" onchange="shrink(this.files[0],500,.9).then(d=>sset('pay_qr',d))"></section>`}
+async function sset(k,v){const{error}=await sb.from('settings').upsert({key:k,value:String(v)});alert(error?error.message:'Guardado');ahorro()}
+
+/* ---------- DOMICILIARIO ---------- */
+let shift,wid=null,last=0,wl,photo,dirty;
+async function courier(){clearInterval(poll);navigator.geolocation?.getCurrentPosition(()=>{},()=>{});app.innerHTML=`<header><span><label>${av(me)}<input type="file" accept="image/*" hidden onchange="setAv(this.files[0])"></label> <b>${e(me.name)}</b> <span class="mu">${me.plate?'🛵 '+e(me.plate):''}</span></span><span>${insB()} <button class="s" onclick="out()">Salir</button></span></header><main><section class="card" id="sh"></section><div id="ol"></div></main>`;await shiftUI();loadO();poll=setInterval(loadO,20000)}
+async function shiftUI(){const{data}=await sb.from('shifts').select('*').eq('courier_id',me.id).is('end_at',null).maybeSingle();shift=data;if(shift)track();
+ $('#sh').innerHTML=shift?`<div class="row"><span>Jornada iniciada ${fdt(shift.start_at)}<br><span class="mu">📍 GPS activo (mantén esta pantalla abierta)</span></span><button class="rd" onclick="endShift()">Terminar jornada</button></div>`:`<button onclick="startShift()">▶ Iniciar jornada</button>`}
+async function startShift(){const{error}=await sb.from('shifts').insert({courier_id:me.id});if(error)return alert(error.message);shiftUI()}
+async function endShift(){await sb.from('shifts').update({end_at:new Date().toISOString()}).eq('id',shift.id);stop();shiftUI()}
+function track(){if(wid!==null)return;if(!navigator.geolocation)return alert('Este dispositivo no tiene GPS');
+ wid=navigator.geolocation.watchPosition(p=>{if(Date.now()-last<8000)return;last=Date.now();sb.from('locations').upsert({courier_id:me.id,lat:p.coords.latitude,lng:p.coords.longitude,updated_at:new Date().toISOString()})},()=>alert('Activa el permiso de ubicación'),{enableHighAccuracy:true});
+ navigator.wakeLock?.request('screen').then(w=>wl=w).catch(()=>{})}
+function stop(){if(wid!==null)navigator.geolocation.clearWatch(wid);wid=null;wl?.release()}
+async function loadO(){const{data}=await sb.from('orders').select('id,type,client_name,client_phone,address,description,total,status').neq('status','entregado').order('created_at');
+ $('#ol').innerHTML=(data||[]).map(o=>`<div class="card"><div class="row"><b>${TYPES[o.type]||o.type}</b><span class="chip">${ST[o.status]}</span></div>
+ <div><b>${e(o.client_name)}</b> · <a href="tel:${e(o.client_phone)}">${e(o.client_phone)}</a></div><div>${e(o.address)}</div><div class="mu">${e(o.description)}</div><div class="big">${money(o.total)}</div>
+ <div class="row"><button class="s" onclick="window.open('https://www.google.com/maps/search/?api=1&query='+encodeURIComponent(${JSON.stringify(o.address)}))">🗺 Ir</button>
+ <button class="s" onclick="qr(${o.total})">Cobrar QR</button>${o.status=='en_camino'?`<button onclick="deliver('${o.id}')">✔ Entregar</button>`:`<button onclick="go('${o.id}')">Salir</button>`}</div></div>`).join('')||'<p class="mu">Sin pedidos asignados.</p>'}
+async function go(id){await sb.from('orders').update({status:'en_camino'}).eq('id',id);loadO()}
+async function qr(t){const{data}=await sb.from('settings').select('value').eq('key','pay_qr').maybeSingle();
+ openM(`<h3>Total a pagar</h3><div class="big">${money(t)}</div>${data?`<img src="${data.value}">`:'<p class="mu">El administrador aún no cargó el QR.</p>'}<button onclick="closeM()">Cerrar</button>`)}
+function deliver(id){photo=null;dirty=0;openM(`<h3>Confirmar entrega</h3><button class="s" id="cb" onclick="cam()">📷 Tomar foto de la entrega</button><video id="vid" autoplay playsinline muted style="display:none;width:100%;border-radius:8px"></video><button id="snap" style="display:none" onclick="snap()">Capturar</button><img id="prev" style="display:none">
+ <label class="mu">Firma del cliente</label><canvas id="sig"></canvas><div class="row"><button class="s" onclick="sigInit()">Borrar firma</button><button onclick="fin('${id}')">Marcar entregado</button></div><button class="s" onclick="closeM()">Cancelar</button>`);sigInit()}
+function sigInit(){const c=$('#sig');c.width=c.offsetWidth;c.height=160;dirty=0;const x=c.getContext('2d');x.lineWidth=2.5;x.lineCap='round';x.strokeStyle='#000';let d=0;
+ const p=v=>{const r=c.getBoundingClientRect();return[v.clientX-r.left,v.clientY-r.top]};
+ c.onpointerdown=v=>{d=1;dirty=1;x.beginPath();x.moveTo(...p(v))};c.onpointermove=v=>{if(d){x.lineTo(...p(v));x.stroke()}};c.onpointerup=c.onpointerleave=()=>d=0}
+async function fin(id){const{error}=await sb.from('orders').update({status:'entregado',delivered_at:new Date().toISOString(),photo:photo||null,signature:dirty?$('#sig').toDataURL('image/png'):null}).eq('id',id);
+ if(error)return alert(error.message);closeM();loadO()}
+</script></body></html>
