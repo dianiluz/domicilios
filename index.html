@@ -38,7 +38,7 @@ th{text-transform:uppercase;font-size:11px;letter-spacing:.06em;color:var(--mu);
 a{color:var(--tx)}hr{border:0;border-top:1px solid var(--bd);margin:14px 0}
 .leaflet-tile-pane{filter:grayscale(1) contrast(1.05)}#map{border:1px solid var(--tx)}
 .pin{border-color:#000}.av{background:#000;color:#fff}
-</style></head><body>
+</style><script>window.CUPISSA_NATIVE_READY=new Promise(resolve=>window.addEventListener('cupissa-native-ready',resolve,{once:true}));</script><script type="module" src="/src/native-bridge.js"></script></head><body>
 <div id="app"></div><div id="modal"><div></div></div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
@@ -48,10 +48,11 @@ const e=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt
 const money=n=>'$'+Number(n||0).toLocaleString('es-CO'),fdt=d=>d?new Date(d).toLocaleString('es-CO',{dateStyle:'short',timeStyle:'short'}):'—';
 const TYPES={domicilio:'Domicilio',mandado:'Mandado',traslado:'Llevarme a un lugar'};
 const ST={pendiente:'Pendiente',asignado:'Asignado',en_camino:'En camino',entregado:'Entregado'};
-var nt,nmap,nw;const openM=h=>{$('#modal>div').innerHTML='<button class="s" onclick="closeM()" style="float:right;position:sticky;top:0;z-index:9">✕</button>'+h;$('#modal').style.display='flex'},closeM=()=>{$('#modal').style.display='none';try{stm?.getTracks().forEach(t=>t.stop())}catch{}};
-$('#modal').addEventListener('click',ev=>{if(ev.target.id=='modal')closeM()});addEventListener('keydown',ev=>{if(ev.key=='Escape')closeM()});
+var nt,nmap,nw;let modalLocked=false;const openM=(h,opts={})=>{modalLocked=opts.dismissible===false;$('#modal>div').innerHTML='<button class="s" onclick="closeM()" style="float:right;position:sticky;top:0;z-index:9">✕</button>'+h;$('#modal').style.display='flex'},closeM=()=>{$('#modal').style.display='none';modalLocked=false;try{stm?.getTracks().forEach(t=>t.stop())}catch{}};
+$('#modal').addEventListener('click',ev=>{if(ev.target.id=='modal'&&!modalLocked)closeM()});addEventListener('keydown',ev=>{if(ev.key=='Escape'&&!modalLocked)closeM()});
 const shrink=(f,w,q)=>new Promise(r=>{const i=new Image();i.onload=()=>{const k=Math.min(1,w/i.width),c=document.createElement('canvas');c.width=i.width*k;c.height=i.height*k;c.getContext('2d').drawImage(i,0,0,c.width,c.height);r(c.toDataURL('image/jpeg',q))};i.src=URL.createObjectURL(f)});
-let stm,tmr,ip,cfg=JSON.parse(localStorage.getItem('cfg')||'null'),sb,me,C=[],chan,map,poll;
+const cfg=Object.freeze({u:'https://twrzhqrnnzzeznxrvgzd.supabase.co',k:'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR3cnpocXJubnp6ZXpueHJ2Z3pkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTM5MjMzMTQsImV4cCI6MjEwOTQ5OTMxNH0.dm7R81ncvyOqxhI8ih1Il8ZqUQphOhY61wdV2_dMC4Y'});
+let stm,tmr,ip,sb,me,C=[],chan,map,poll;
 
 const av=c=>c.avatar?`<img class="av" src="${c.avatar}">`:`<span class="av">${e((c.name||'?')[0])}</span>`;
 const insB=()=>`<button id="ins" class="s" style="display:${ip?'inline-block':'none'}" onclick="ip.prompt()">⬇ Instalar app</button>`;
@@ -62,12 +63,12 @@ async function plate(id){await sb.from('profiles').update({plate:$('#pl'+id).val
 async function delo(id){if(!confirm('¿Eliminar este servicio?'))return;await sb.from('orders').delete().eq('id',id);tab('pedidos')}
 async function delall(){if(prompt('Esto borra TODOS los servicios. Escribe BORRAR para confirmar')!='BORRAR')return;await sb.from('orders').delete().neq('id','00000000-0000-0000-0000-000000000000');tab('pedidos')}
 async function setAv(f){if(!f)return;me.avatar=await shrink(f,200,.8);await sb.from('profiles').update({avatar:me.avatar}).eq('id',me.id);courier()}
-async function cam(){try{stm=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'}}});const v=$('#vid');v.srcObject=stm;v.style.display='block';$('#snap').style.display='inline-block';$('#cb').style.display='none'}catch{alert('No se pudo abrir la cámara. Revisa el permiso del navegador.')}}
+async function cam(){try{if(window.CUPISSA_CAMERA&&window.Capacitor?.isNativePlatform?.()){const shot=await window.CUPISSA_CAMERA.getPhoto({quality:85});if(!shot?.dataUrl)throw new Error('No se capturó la fotografía');photo=shot.dataUrl;$('#prev').src=photo;$('#prev').style.display='block';$('#vid').style.display='none';$('#snap').style.display='none';$('#cb').style.display='inline-block';$('#cb').textContent='📷 Repetir foto';return;}try{stm=await navigator.mediaDevices.getUserMedia({audio:false,video:{facingMode:{exact:'environment'}}})}catch{stm=await navigator.mediaDevices.getUserMedia({audio:false,video:{facingMode:{ideal:'environment'}}})}const v=$('#vid');v.srcObject=stm;v.style.display='block';await v.play();$('#snap').style.display='inline-block';$('#cb').style.display='none'}catch(err){alert('No se pudo abrir la cámara trasera. Revisa el permiso del navegador. '+(err?.message||''))}}
 function snap(){const v=$('#vid'),c=document.createElement('canvas'),k=Math.min(1,800/v.videoWidth);c.width=v.videoWidth*k;c.height=v.videoHeight*k;c.getContext('2d').drawImage(v,0,0,c.width,c.height);photo=c.toDataURL('image/jpeg',.6);stm.getTracks().forEach(t=>t.stop());v.style.display='none';$('#snap').style.display='none';$('#prev').src=photo;$('#prev').style.display='block';$('#cb').style.display='inline-block';$('#cb').textContent='📷 Repetir foto'}
-if(!cfg){app.innerHTML=`<div class="card narrow"><h2>Conectar Supabase</h2><p class="mu">Project URL y anon public key (Settings &gt; API).</p><input id="u" placeholder="https://xxxx.supabase.co"><input id="k" placeholder="anon public key"><button onclick="localStorage.setItem('cfg',JSON.stringify({u:$('#u').value.trim(),k:$('#k').value.trim()}));location.reload()">Guardar</button></div>`}else init();
+init();
 
-async function init(){sb=supabase.createClient(cfg.u,cfg.k);const{data:{session}}=await sb.auth.getSession();session?start(session.user):login()}
-function login(){app.innerHTML=`<div class="card narrow" style="text-align:center"><img src="logo/logo.png" alt="Cupissa" style="max-height:70px;margin-bottom:8px" onerror="this.style.display='none'"><h2>DOMICILIOS</h2><input id="em" type="email" placeholder="Correo"><input id="pw" type="password" placeholder="Contraseña (mín. 6)"><div class="row"><button onclick="auth(1)">Entrar</button></div><p class="mu"><a href="#" onclick="auth(0);return false">Primera vez: crear administrador</a></p>${insB()}</div>`}
+async function init(){try{await window.CUPISSA_NATIVE_READY;const opts=window.CUPISSA_FETCH?{global:{fetch:window.CUPISSA_FETCH}}:{};sb=supabase.createClient(cfg.u,cfg.k,opts);const{data:{session}}=await sb.auth.getSession();session?start(session.user):login()}catch(err){app.innerHTML='<div class="card narrow"><h2>No se pudo iniciar CUPISSA DOMIS</h2><p class="mu">Revisa tu conexión a internet e inténtalo de nuevo.</p></div>';console.error(err)}}
+function login(){app.innerHTML=`<div class="card narrow" style="text-align:center"><img src="logo/logo.png" alt="Cupissa" style="max-height:70px;margin-bottom:8px" onerror="this.style.display='none'"><h2>DOMICILIOS</h2><input id="em" type="email" placeholder="Correo"><input id="pw" type="password" placeholder="Contraseña (mín. 6)"><div class="row"><button onclick="auth(1)">Entrar</button></div>${insB()}</div>`}
 async function auth(inn){const em=$('#em').value,pw=$('#pw').value;const r=inn?await sb.auth.signInWithPassword({email:em,password:pw}):await sb.auth.signUp({email:em,password:pw});
  if(r.error)return alert(r.error.message);if(!r.data.session)return alert('Revisa tu correo para confirmar (o desactiva la confirmación en Supabase).');start(r.data.user)}
 async function out(){stop();clearInterval(poll);await sb.auth.signOut();location.reload()}
@@ -138,10 +139,10 @@ async function shiftUI(){const{data}=await sb.from('shifts').select('*').eq('cou
 async function startShift(){const{error}=await sb.from('shifts').insert({courier_id:me.id});if(error)return alert(error.message);shiftUI()}
 async function endShift(){await sb.from('shifts').update({end_at:new Date().toISOString()}).eq('id',shift.id);stop();shiftUI()}
 let lp,hb,bgw;
-const BGP=()=>window.Capacitor?.Plugins?.BackgroundGeolocation;
+const BGP=()=>window.CUPISSA_BG||window.Capacitor?.Plugins?.BackgroundGeolocation||null;
 function send(){if(!lp||!me)return;sb.from('locations').upsert({courier_id:me.id,lat:lp.lat,lng:lp.lng,acc:lp.acc,updated_at:new Date().toISOString()},{onConflict:'courier_id'}).then(r=>{if(r.error)console.warn('GPS:',r.error.message)})}
-function track(){if(wid!==null)return;const set=(la,ln,ac)=>{lp={lat:la,lng:ln,acc:ac};send()};
- if(BGP()){wid='bg';BGP().addWatcher({backgroundTitle:'Jornada activa',backgroundMessage:'Compartiendo ubicación con la empresa',requestPermissions:true,stale:false,distanceFilter:0},(l,er)=>{if(er)return er.code==='NOT_AUTHORIZED'&&alert('Activa la ubicación "Siempre" para esta app');set(l.latitude,l.longitude,l.accuracy)}).then(id=>bgw=id)}
+async function track(){if(wid!==null)return;const set=(la,ln,ac)=>{lp={lat:la,lng:ln,acc:ac};send()};
+ if(BGP()&&window.Capacitor?.isNativePlatform?.()){try{await window.CUPISSA_NOTIFICATIONS?.requestPermissions?.();wid='bg';BGP().addWatcher({backgroundTitle:'CUPISSA DOMIS · Jornada activa',backgroundMessage:'Compartiendo ubicación con CUPISSA mientras tu jornada esté activa',requestPermissions:true,stale:false,distanceFilter:0},(l,er)=>{if(er){console.warn('GPS:',er.message||er);return}if(l)set(l.latitude,l.longitude,l.accuracy)}).then(id=>bgw=id).catch(er=>{wid=null;console.error(er);alert('No se pudo iniciar el GPS en segundo plano. Revisa los permisos de ubicación.')})}catch(er){wid=null;console.error(er);alert('No se pudieron solicitar los permisos de ubicación/notificaciones.')}}
  else{if(!navigator.geolocation)return alert('Este dispositivo no tiene GPS');wid=navigator.geolocation.watchPosition(p=>set(p.coords.latitude,p.coords.longitude,p.coords.accuracy),er=>console.warn(er.message),{enableHighAccuracy:true,maximumAge:0})}
  hb=setInterval(send,10000);navigator.wakeLock?.request('screen').then(w=>wl=w).catch(()=>{})}
 function stop(){clearInterval(hb);if(bgw&&BGP())BGP().removeWatcher({id:bgw});bgw=null;if(typeof wid=='number')navigator.geolocation.clearWatch(wid);wid=null;wl?.release()}
@@ -178,7 +179,7 @@ function comp(id){photo=null;openM(`<h3>Comprobante de transferencia</h3><button
 async function saveComp(id){if(!photo)return alert('Primero captura la foto');const{error}=await sb.from('orders').update({transfer_photo:photo}).eq('id',id);if(error)return alert(error.message);alert('Comprobante enviado');closeM()}
 async function go(id){await sb.from('orders').update({status:'en_camino'}).eq('id',id);loadO()}
 async function qr(t){const{data}=await sb.from('settings').select('value').eq('key','pay_qr').maybeSingle();
- openM(`<h3>Total a pagar</h3><div class="big">${money(t)}</div>${data?`<img src="${data.value}">`:'<p class="mu">El administrador aún no cargó el QR.</p>'}<button onclick="closeM()">Cerrar</button>`)}
+ openM(`<h3>Total a pagar</h3><div class="big">${money(t)}</div>${data?`<img src="${data.value}">`:'<p class="mu">El administrador aún no cargó el QR.</p>'}<button onclick="closeM()">Cerrar</button>`,{dismissible:false})}
 function deliver(id){photo=null;dirty=0;openM(`<h3>Confirmar entrega</h3><button class="s" id="cb" onclick="cam()">📷 Tomar foto de la entrega</button><video id="vid" autoplay playsinline muted style="display:none;width:100%;border-radius:8px"></video><button id="snap" style="display:none" onclick="snap()">Capturar</button><img id="prev" style="display:none">
  <label class="mu">Firma del cliente</label><canvas id="sig"></canvas><div class="row"><button class="s" onclick="sigInit()">Borrar firma</button><button onclick="fin('${id}')">Marcar entregado</button></div><button class="s" onclick="closeM()">Cancelar</button>`);sigInit()}
 function sigInit(){const c=$('#sig');c.width=c.offsetWidth;c.height=160;dirty=0;const x=c.getContext('2d');x.lineWidth=2.5;x.lineCap='round';x.strokeStyle='#000';let d=0;
