@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Cupissa Domis</title><meta name="robots" content="noindex,nofollow"><meta name="theme-color" content="#000000">
+<title>DOMICILIOS</title><meta name="robots" content="noindex,nofollow"><meta name="theme-color" content="#000000">
 <link rel="manifest" href="manifest.json"><link rel="icon" href="logo/favicon.png"><link rel="apple-touch-icon" href="logo/icon-192.png">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <style>
@@ -66,7 +66,7 @@ function snap(){const v=$('#vid'),c=document.createElement('canvas'),k=Math.min(
 if(!cfg){app.innerHTML=`<div class="card narrow"><h2>Conectar Supabase</h2><p class="mu">Project URL y anon public key (Settings &gt; API).</p><input id="u" placeholder="https://xxxx.supabase.co"><input id="k" placeholder="anon public key"><button onclick="localStorage.setItem('cfg',JSON.stringify({u:$('#u').value.trim(),k:$('#k').value.trim()}));location.reload()">Guardar</button></div>`}else init();
 
 async function init(){sb=supabase.createClient(cfg.u,cfg.k);const{data:{session}}=await sb.auth.getSession();session?start(session.user):login()}
-function login(){app.innerHTML=`<div class="card narrow" style="text-align:center"><img src="logo/logo.png" alt="Cupissa" style="max-height:70px;margin-bottom:8px" onerror="this.style.display='none'"><h2>Cupissa Domis</h2><input id="em" type="email" placeholder="Correo"><input id="pw" type="password" placeholder="Contraseña (mín. 6)"><div class="row"><button onclick="auth(1)">Entrar</button></div><p class="mu"><a href="#" onclick="auth(0);return false">Primera vez: crear administrador</a></p>${insB()}</div>`}
+function login(){app.innerHTML=`<div class="card narrow" style="text-align:center"><img src="logo/logo.png" alt="Cupissa" style="max-height:70px;margin-bottom:8px" onerror="this.style.display='none'"><h2>DOMICILIOS</h2><input id="em" type="email" placeholder="Correo"><input id="pw" type="password" placeholder="Contraseña (mín. 6)"><div class="row"><button onclick="auth(1)">Entrar</button></div><p class="mu"><a href="#" onclick="auth(0);return false">Primera vez: crear administrador</a></p>${insB()}</div>`}
 async function auth(inn){const em=$('#em').value,pw=$('#pw').value;const r=inn?await sb.auth.signInWithPassword({email:em,password:pw}):await sb.auth.signUp({email:em,password:pw});
  if(r.error)return alert(r.error.message);if(!r.data.session)return alert('Revisa tu correo para confirmar (o desactiva la confirmación en Supabase).');start(r.data.user)}
 async function out(){stop();clearInterval(poll);await sb.auth.signOut();location.reload()}
