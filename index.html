@@ -48,7 +48,8 @@ const e=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt
 const money=n=>'$'+Number(n||0).toLocaleString('es-CO'),fdt=d=>d?new Date(d).toLocaleString('es-CO',{dateStyle:'short',timeStyle:'short'}):'—';
 const TYPES={domicilio:'Domicilio',mandado:'Mandado',traslado:'Llevarme a un lugar'};
 const ST={pendiente:'Pendiente',asignado:'Asignado',en_camino:'En camino',entregado:'Entregado'};
-const openM=h=>{$('#modal>div').innerHTML=h;$('#modal').style.display='flex'},closeM=()=>{stm?.getTracks().forEach(t=>t.stop());clearInterval(nt);nmap?.remove();nmap=0;$('#modal').style.display='none'};
+var nt,nmap,nw;const openM=h=>{$('#modal>div').innerHTML='<button class="s" onclick="closeM()" style="float:right;position:sticky;top:0;z-index:9">✕</button>'+h;$('#modal').style.display='flex'},closeM=()=>{$('#modal').style.display='none';try{stm?.getTracks().forEach(t=>t.stop())}catch{}};
+$('#modal').addEventListener('click',ev=>{if(ev.target.id=='modal')closeM()});addEventListener('keydown',ev=>{if(ev.key=='Escape')closeM()});
 const shrink=(f,w,q)=>new Promise(r=>{const i=new Image();i.onload=()=>{const k=Math.min(1,w/i.width),c=document.createElement('canvas');c.width=i.width*k;c.height=i.height*k;c.getContext('2d').drawImage(i,0,0,c.width,c.height);r(c.toDataURL('image/jpeg',q))};i.src=URL.createObjectURL(f)});
 let stm,tmr,ip,cfg=JSON.parse(localStorage.getItem('cfg')||'null'),sb,me,C=[],chan,map,poll;
 
@@ -61,7 +62,7 @@ async function plate(id){await sb.from('profiles').update({plate:$('#pl'+id).val
 async function delo(id){if(!confirm('¿Eliminar este servicio?'))return;await sb.from('orders').delete().eq('id',id);tab('pedidos')}
 async function delall(){if(prompt('Esto borra TODOS los servicios. Escribe BORRAR para confirmar')!='BORRAR')return;await sb.from('orders').delete().neq('id','00000000-0000-0000-0000-000000000000');tab('pedidos')}
 async function setAv(f){if(!f)return;me.avatar=await shrink(f,200,.8);await sb.from('profiles').update({avatar:me.avatar}).eq('id',me.id);courier()}
-async function cam(){try{stm=await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment'}});const v=$('#vid');v.srcObject=stm;v.style.display='block';$('#snap').style.display='inline-block';$('#cb').style.display='none'}catch{alert('No se pudo abrir la cámara. Revisa el permiso del navegador.')}}
+async function cam(){try{stm=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'}}});const v=$('#vid');v.srcObject=stm;v.style.display='block';$('#snap').style.display='inline-block';$('#cb').style.display='none'}catch{alert('No se pudo abrir la cámara. Revisa el permiso del navegador.')}}
 function snap(){const v=$('#vid'),c=document.createElement('canvas'),k=Math.min(1,800/v.videoWidth);c.width=v.videoWidth*k;c.height=v.videoHeight*k;c.getContext('2d').drawImage(v,0,0,c.width,c.height);photo=c.toDataURL('image/jpeg',.6);stm.getTracks().forEach(t=>t.stop());v.style.display='none';$('#snap').style.display='none';$('#prev').src=photo;$('#prev').style.display='block';$('#cb').style.display='inline-block';$('#cb').textContent='📷 Repetir foto'}
 if(!cfg){app.innerHTML=`<div class="card narrow"><h2>Conectar Supabase</h2><p class="mu">Project URL y anon public key (Settings &gt; API).</p><input id="u" placeholder="https://xxxx.supabase.co"><input id="k" placeholder="anon public key"><button onclick="localStorage.setItem('cfg',JSON.stringify({u:$('#u').value.trim(),k:$('#k').value.trim()}));location.reload()">Guardar</button></div>`}else init();
 
@@ -100,7 +101,7 @@ async function evid(id){const{data}=await sb.from('orders').select('photo,signat
 async function equipo(){
  const{data:cs}=await sb.from('profiles').select('id,name,phone,plate,avatar').eq('role','courier');C=cs||[];
  $('#m').innerHTML=`<div id="map"></div><p id="seen" class="mu"></p><section class="card"><h3>Nuevo domiciliario</h3><form id="f"><div class="g"><input name="name" placeholder="Nombre" required><input name="phone" placeholder="Teléfono"><input name="plate" placeholder="Placa del vehículo" style="text-transform:uppercase"><input name="email" type="email" placeholder="Correo" required><input name="pw" placeholder="Contraseña (mín. 6)" required></div><button>Crear domiciliario</button></form></section>
- ${C.map(c=>`<div class="card row"><span>${av(c)} <b>${e(c.name)}</b> <span class="mu">${e(c.phone)}</span></span><span><input id="pl${c.id}" value="${e(c.plate)}" placeholder="Placa" style="width:110px;text-transform:uppercase"> <button class="s" onclick="plate('${c.id}')">Guardar</button></span></div>`).join('')}`;
+ ${C.map(c=>`<div class="card row"><span>${av(c)} <b>${e(c.name)}</b> <span class="mu">${e(c.phone)}</span><br><small class="mu" style="user-select:all">ID: ${c.id}</small></span><span><input id="pl${c.id}" value="${e(c.plate)}" placeholder="Placa" style="width:110px;text-transform:uppercase"> <button class="s" onclick="plate('${c.id}')">Guardar</button></span></div>`).join('')}`;
  map=L.map('map').setView([10.96,-74.78],12);L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OpenStreetMap'}).addTo(map);
  const mk={},tr={},seen={};let fit=0;
  const put=r=>{const c=C.find(x=>x.id==r.courier_id)||{name:'?'},p=[r.lat,r.lng];
@@ -136,7 +137,7 @@ async function shiftUI(){const{data}=await sb.from('shifts').select('*').eq('cou
  $('#sh').innerHTML=shift?`<div class="row"><span>Jornada iniciada ${fdt(shift.start_at)}<br><span class="mu">📍 GPS activo ${window.Capacitor?.isNativePlatform?.()?'(segundo plano activo)':'(mantén esta pantalla abierta)'}</span></span><button class="rd" onclick="endShift()">Terminar jornada</button></div>`:`<button onclick="startShift()">▶ Iniciar jornada</button>`}
 async function startShift(){const{error}=await sb.from('shifts').insert({courier_id:me.id});if(error)return alert(error.message);shiftUI()}
 async function endShift(){await sb.from('shifts').update({end_at:new Date().toISOString()}).eq('id',shift.id);stop();shiftUI()}
-let lp,hb,bgw,tp,nmap,nt;
+let lp,hb,bgw;
 const BGP=()=>window.Capacitor?.Plugins?.BackgroundGeolocation;
 function send(){if(!lp||!me)return;sb.from('locations').upsert({courier_id:me.id,lat:lp.lat,lng:lp.lng,acc:lp.acc,updated_at:new Date().toISOString()},{onConflict:'courier_id'}).then(r=>{if(r.error)console.warn('GPS:',r.error.message)})}
 function track(){if(wid!==null)return;const set=(la,ln,ac)=>{lp={lat:la,lng:ln,acc:ac};send()};
@@ -153,21 +154,28 @@ async function loadO(){const{data}=await sb.from('orders').select('id,type,clien
  ${d?`<div><b>${e(o.client_name)}</b> · <a href="tel:${e(o.client_phone)}">${e(o.client_phone)}</a></div><div>${e(o.address)}</div>`:''}<div class="${d?'mu':''}">${e(o.description)}</div>${d&&mine?`<div class="big">${money(o.total)}</div>`:''}
  <div class="row">${!mine?`<button onclick="accept('${o.id}')">✋ Aceptar</button>`:`${d?`<button class="s" onclick="nav('${o.id}')">🗺 Ruta</button><button class="s" onclick="qr(${o.total})">Cobrar QR</button><button class="s" onclick="comp('${o.id}')">💳 Comprobante</button>`:''}${o.status=='en_camino'?`<button onclick="deliver('${o.id}')">✔ Entregar</button>`:`<button onclick="go('${o.id}')">Salir</button>`}`}</div></div>`}).join('')||'<p class="mu">Sin pedidos.</p>'}
 async function accept(id){const{data}=await sb.from('orders').update({courier_id:me.id,status:'asignado'}).eq('id',id).is('courier_id',null).select('id');if(!data?.length)alert('Otro domiciliario ya lo tomó');loadO()}
+const MAN={left:'a la izquierda',right:'a la derecha',straight:'recto','slight left':'ligeramente a la izquierda','slight right':'ligeramente a la derecha','sharp left':'cerrado a la izquierda','sharp right':'cerrado a la derecha',uturn:'en U'};
+const ins=s=>{const m=s.maneuver,t=m.type,w=MAN[m.modifier]||'',n=s.name?' por '+s.name:'';return t=='arrive'?'Llegaste al destino':t=='depart'?'Sal'+n:/roundabout|rotary/.test(t)?'Entra a la rotonda'+n:/turn|end of road|fork|ramp/.test(t)?'Gira '+w+n:'Continúa '+w+n};
+function navX(){clearInterval(nt);if(nw!=null)navigator.geolocation.clearWatch(nw);nw=null;nmap?.remove();nmap=0;$('#navv')?.remove();speechSynthesis?.cancel()}
 async function nav(id){const{data:o}=await sb.from('orders').select('address,dest_lat,dest_lng').eq('id',id).single();
- const d=o.dest_lat!=null?[o.dest_lat,o.dest_lng]:await geo(o.address);
- openM(`<h3>Ruta a la entrega</h3><div id="nm" style="height:48vh;border-radius:10px"></div><p id="ni" class="mu">Calculando…</p><div class="row"><button onclick="window.open('https://www.google.com/maps/dir/?api=1&destination='+encodeURIComponent('${d?d.join(','):e(o.address).replace(/'/g,'')}'))">Abrir en Google Maps</button><button class="s" onclick="closeM()">Cerrar</button></div>`);
- nmap=L.map('nm').setView(d||[10.96,-74.78],14);L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OpenStreetMap'}).addTo(nmap);
- if(!d)return $('#ni').textContent='No pude ubicar la dirección; usa Google Maps.';
- L.marker(d).addTo(nmap);let dot,rt,first=1;
- const draw=async()=>{if(!lp)return;try{const r=await(await fetch(`https://router.project-osrm.org/route/v1/driving/${lp.lng},${lp.lat};${d[1]},${d[0]}?overview=full&geometries=geojson&steps=true`)).json(),R=r.routes[0];if(!nmap)return;
-  rt&&nmap.removeLayer(rt);rt=L.geoJSON(R.geometry,{style:{color:'#000',weight:5}}).addTo(nmap);
-  dot?dot.setLatLng([lp.lat,lp.lng]):dot=L.circleMarker([lp.lat,lp.lng],{radius:8,color:'#0a0',fillOpacity:1}).addTo(nmap);
-  if(first){first=0;nmap.fitBounds(rt.getBounds(),{padding:[30,30]})}
-  $('#ni').innerHTML=`<b>${(R.distance/1000).toFixed(1)} km · ${Math.round(R.duration/60)} min</b><br>`+R.legs[0].steps.slice(0,4).map(s=>e((s.maneuver.modifier||s.maneuver.type)+' · '+(s.name||'')+' ('+Math.round(s.distance)+' m)')).join('<br>')}catch{$('#ni').textContent='Sin ruta (revisa internet)'}};
- if(!lp)navigator.geolocation.getCurrentPosition(p=>{lp={lat:p.coords.latitude,lng:p.coords.longitude};draw()});
- draw();nt=setInterval(draw,15000)}
-function comp(id){tp=null;openM(`<h3>Comprobante de transferencia</h3><input type="file" accept="image/*" onchange="shrink(this.files[0],900,.7).then(d=>{tp=d;$('#tpv').src=d;$('#tpv').style.display='block'})"><img id="tpv" style="display:none"><div class="row"><button onclick="saveComp('${id}')">Guardar</button><button class="s" onclick="closeM()">Cancelar</button></div>`)}
-async function saveComp(id){if(!tp)return alert('Primero toma o elige la foto');const{error}=await sb.from('orders').update({transfer_photo:tp}).eq('id',id);alert(error?error.message:'Comprobante enviado');if(!error)closeM()}
+ const d=o.dest_lat!=null?[o.dest_lat,o.dest_lng]:await geo(o.address);navX();
+ const v=document.createElement('div');v.id='navv';v.style.cssText='position:fixed;inset:0;z-index:60;background:#fff;display:flex;flex-direction:column';
+ v.innerHTML='<div id="nm" style="flex:1"></div><div style="padding:12px;border-top:1px solid #000"><div id="ni" class="mu">Calculando…</div><div class="row"><button class="s" onclick="navX()">✕ Cerrar mapa</button><button class="s" onclick="lp&&nmap.setView([lp.lat,lp.lng],17)">📍 Centrar</button></div></div>';
+ document.body.appendChild(v);
+ nmap=L.map('nm').setView(d||[10.96,-74.78],15);L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OpenStreetMap'}).addTo(nmap);
+ if(!d)return $('#ni').textContent='No pude ubicar la dirección. Pide al administrador que la escriba como coordenadas.';
+ L.marker(d).addTo(nmap);let dot,rt,fit=1,key='';
+ const upd=()=>{if(!lp||!nmap)return;dot?dot.setLatLng([lp.lat,lp.lng]):dot=L.circleMarker([lp.lat,lp.lng],{radius:9,color:'#fff',weight:3,fillColor:'#0a7',fillOpacity:1}).addTo(nmap)};
+ const draw=async()=>{if(!lp||!nmap)return;try{const r=await(await fetch(`https://router.project-osrm.org/route/v1/driving/${lp.lng},${lp.lat};${d[1]},${d[0]}?overview=full&geometries=geojson&steps=true`)).json(),R=r.routes[0];if(!nmap)return;
+  rt&&nmap.removeLayer(rt);rt=L.geoJSON(R.geometry,{style:{color:'#000',weight:6}}).addTo(nmap);upd();
+  if(fit){fit=0;nmap.fitBounds(rt.getBounds(),{padding:[40,40]})}
+  const st=R.legs[0].steps,nx=st[1]||st[0],tx=ins(nx);
+  $('#ni').innerHTML=`<div class="big">${Math.round(st[0].distance)} m</div><b>${e(tx)}</b><div class="mu">${(R.distance/1000).toFixed(1)} km · ${Math.round(R.duration/60)} min al destino</div>`;
+  if(tx!=key){key=tx;try{speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(tx);u.lang='es-CO';speechSynthesis.speak(u)}catch{}}}catch{$('#ni').textContent='Sin ruta (revisa internet)'}};
+ nw=navigator.geolocation.watchPosition(p=>{const first=!lp;lp={lat:p.coords.latitude,lng:p.coords.longitude,acc:p.coords.accuracy};upd();if(first)draw()},()=>{$('#ni').textContent='Activa el permiso de ubicación'},{enableHighAccuracy:true,maximumAge:0});
+ upd();draw();nt=setInterval(draw,12000)}
+function comp(id){photo=null;openM(`<h3>Comprobante de transferencia</h3><button class="s" id="cb" onclick="cam()">📷 Abrir cámara trasera</button><video id="vid" autoplay playsinline muted style="display:none;width:100%;border-radius:8px"></video><button id="snap" style="display:none" onclick="snap()">Capturar</button><img id="prev" style="display:none"><div class="row"><button onclick="saveComp('${id}')">Enviar</button><button class="s" onclick="closeM()">Cancelar</button></div>`);cam()}
+async function saveComp(id){if(!photo)return alert('Primero captura la foto');const{error}=await sb.from('orders').update({transfer_photo:photo}).eq('id',id);if(error)return alert(error.message);alert('Comprobante enviado');closeM()}
 async function go(id){await sb.from('orders').update({status:'en_camino'}).eq('id',id);loadO()}
 async function qr(t){const{data}=await sb.from('settings').select('value').eq('key','pay_qr').maybeSingle();
  openM(`<h3>Total a pagar</h3><div class="big">${money(t)}</div>${data?`<img src="${data.value}">`:'<p class="mu">El administrador aún no cargó el QR.</p>'}<button onclick="closeM()">Cerrar</button>`)}
