@@ -48,7 +48,7 @@ const e=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt
 const money=n=>'$'+Number(n||0).toLocaleString('es-CO'),fdt=d=>d?new Date(d).toLocaleString('es-CO',{dateStyle:'short',timeStyle:'short'}):'—';
 const TYPES={domicilio:'Domicilio',mandado:'Mandado',traslado:'Llevarme a un lugar'};
 const ST={pendiente:'Pendiente',asignado:'Asignado',en_camino:'En camino',entregado:'Entregado'};
-const openM=h=>{$('#modal>div').innerHTML=h;$('#modal').style.display='flex'},closeM=()=>{stm?.getTracks().forEach(t=>t.stop());$('#modal').style.display='none'};
+const openM=h=>{$('#modal>div').innerHTML=h;$('#modal').style.display='flex'},closeM=()=>{stm?.getTracks().forEach(t=>t.stop());clearInterval(nt);nmap?.remove();nmap=0;$('#modal').style.display='none'};
 const shrink=(f,w,q)=>new Promise(r=>{const i=new Image();i.onload=()=>{const k=Math.min(1,w/i.width),c=document.createElement('canvas');c.width=i.width*k;c.height=i.height*k;c.getContext('2d').drawImage(i,0,0,c.width,c.height);r(c.toDataURL('image/jpeg',q))};i.src=URL.createObjectURL(f)});
 let stm,tmr,ip,cfg=JSON.parse(localStorage.getItem('cfg')||'null'),sb,me,C=[],chan,map,poll;
 
@@ -81,21 +81,21 @@ async function pedidos(){
  const[a,b]=await Promise.all([sb.from('profiles').select('id,name').eq('role','courier'),sb.from('orders').select('id,type,client_name,client_phone,address,description,total,courier_id,status,created_at,delivered_at').order('created_at',{ascending:false}).limit(60)]);
  C=a.data||[];const os=b.data||[];
  $('#m').innerHTML=`<section class="card"><div class="row"><h3>Nuevo servicio</h3><button class="rd" onclick="delall()">Borrar todos</button></div><form id="f"><div class="g">
- <select name="type">${Object.entries(TYPES).map(x=>`<option value="${x[0]}">${x[1]}</option>`).join('')}</select>
- <input name="name" placeholder="Nombre del cliente"><input name="phone" placeholder="Teléfono" inputmode="tel">
- <input name="address" placeholder="Dirección (o coordenadas 10.96,-74.78)" required>
- <input name="total" type="number" placeholder="Total a cobrar" inputmode="numeric"><input name="cost" type="number" placeholder="🔒 Precio oculto (lo que pagarías)" inputmode="numeric">
+ <select name="type" onchange="tg()">${Object.entries(TYPES).map(x=>`<option value="${x[0]}">${x[1]}</option>`).join('')}</select>
+ <input class="dom" name="name" placeholder="Nombre del cliente"><input class="dom" name="phone" placeholder="Teléfono" inputmode="tel">
+ <input class="dom" name="address" placeholder="Dirección (o coordenadas 10.96,-74.78)" required>
+ <input class="dom" name="total" type="number" placeholder="Total a cobrar" inputmode="numeric"><input name="cost" type="number" placeholder="🔒 Precio oculto (lo que pagarías)" inputmode="numeric">
  <select name="courier">${copts()}</select></div><textarea name="desc" placeholder="Detalle del pedido / mandado"></textarea><button>Crear servicio</button></form></section>
  ${os.map(o=>`<div class="card"><div class="row"><b>${TYPES[o.type]||o.type} · ${e(o.client_name)}</b><span class="chip">${ST[o.status]}</span></div>
  <div class="mu">${e(o.address)} · ${e(o.client_phone)}</div><div>${e(o.description)}</div>
  <div class="row"><b>${money(o.total)}</b><span class="mu">${fdt(o.created_at)}</span></div>
- <div class="row"><select style="width:auto" onchange="assign('${o.id}',this.value)">${copts(o.courier_id)}</select><button class="rd" onclick="delo('${o.id}')">🗑 Eliminar</button>${o.status=='entregado'?`<button class="s" onclick="evid('${o.id}')">Ver evidencia · ${fdt(o.delivered_at)}</button>`:''}</div></div>`).join('')||'<p class="mu">Sin servicios aún.</p>'}`;
- $('#f').onsubmit=async ev=>{ev.preventDefault();const d=Object.fromEntries(new FormData(ev.target));
-  const{data:o,error}=await sb.from('orders').insert({type:d.type,client_name:d.name,client_phone:d.phone,address:d.address,description:d.desc,total:+d.total||0,courier_id:d.courier||null,status:d.courier?'asignado':'pendiente'}).select('id').single();
+ <div class="row"><select style="width:auto" onchange="assign('${o.id}',this.value)">${copts(o.courier_id)}</select><button class="rd" onclick="delo('${o.id}')">🗑 Eliminar</button>${o.status=='entregado'?`<button class="s" onclick="evid('${o.id}')">Ver evidencia</button>`:`<button class="s" onclick="evid('${o.id}')">Ver comprobante</button>`}</div></div>`).join('')||'<p class="mu">Sin servicios aún.</p>'}`;
+ tg();$('#f').onsubmit=async ev=>{ev.preventDefault();const d=Object.fromEntries(new FormData(ev.target));
+  const g=d.address?await geo(d.address):null;const{data:o,error}=await sb.from('orders').insert({type:d.type,client_name:d.name||'',client_phone:d.phone||'',address:d.address||'',dest_lat:g?g[0]:null,dest_lng:g?g[1]:null,description:d.desc,total:+d.total||0,courier_id:d.courier||null,status:d.courier?'asignado':'pendiente'}).select('id').single();
   if(error)return alert(error.message);if(d.cost)await sb.from('order_costs').insert({order_id:o.id,price:+d.cost});tab('pedidos')}}
 async function assign(id,c){await sb.from('orders').update({courier_id:c||null,status:c?'asignado':'pendiente'}).eq('id',id);tab('pedidos')}
-async function evid(id){const{data}=await sb.from('orders').select('photo,signature').eq('id',id).single();
- openM(`<h3>Evidencia</h3>${data.photo?`<img src="${data.photo}">`:'<p class="mu">Sin foto</p>'}${data.signature?`<p class="mu">Firma del cliente</p><div style="background:#fff;border-radius:8px"><img src="${data.signature}"></div>`:'<p class="mu">Sin firma</p>'}<button onclick="closeM()">Cerrar</button>`)}
+async function evid(id){const{data}=await sb.from('orders').select('photo,signature,transfer_photo').eq('id',id).single();
+ openM(`<h3>Evidencia</h3>${data.transfer_photo?`<p class="mu">Comprobante de transferencia</p><img src="${data.transfer_photo}">`:'<p class="mu">Sin comprobante</p>'}${data.photo?`<img src="${data.photo}">`:'<p class="mu">Sin foto</p>'}${data.signature?`<p class="mu">Firma del cliente</p><div style="background:#fff;border-radius:8px"><img src="${data.signature}"></div>`:'<p class="mu">Sin firma</p>'}<button onclick="closeM()">Cerrar</button>`)}
 
 async function equipo(){
  const{data:cs}=await sb.from('profiles').select('id,name,phone,plate,avatar').eq('role','courier');C=cs||[];
@@ -106,7 +106,7 @@ async function equipo(){
  const put=r=>{const c=C.find(x=>x.id==r.courier_id)||{name:'?'},p=[r.lat,r.lng];
   if(!mk[r.courier_id]){mk[r.courier_id]=L.marker(p,{icon:L.divIcon({className:'',html:`<div class="pin">${av(c)}</div>`,iconSize:[44,44],iconAnchor:[22,22]})}).addTo(map).bindTooltip(e(c.name)+(c.plate?' · '+e(c.plate):''));tr[r.courier_id]=L.polyline([],{color:'#000',weight:4}).addTo(map)}
   const t=tr[r.courier_id],ll=t.getLatLngs(),l=ll[ll.length-1];if(!l||l.lat!=r.lat||l.lng!=r.lng){t.addLatLng(p);mk[r.courier_id].setLatLng(p)}
-  seen[r.courier_id]=r;$('#seen').innerHTML=Object.values(seen).map(x=>`${e((C.find(c=>c.id==x.courier_id)||{}).name)}: hace ${Math.round((Date.now()-new Date(x.updated_at))/1000)} s`).join(' · ')};
+  seen[r.courier_id]=r;$('#seen').innerHTML=Object.values(seen).map(x=>`${e((C.find(c=>c.id==x.courier_id)||{}).name)}: ${(q=>q>120?'⚠ SIN SEÑAL hace '+Math.round(q/60)+' min':'hace '+q+' s')(Math.round((Date.now()-new Date(x.updated_at))/1000))}`).join(' · ')};
  const load=async()=>{const{data}=await sb.from('locations').select('*');if(!data?.length){const s=$('#seen');if(s)s.textContent='Sin señal GPS: el domiciliario debe iniciar jornada.';return}data.forEach(put);if(!fit){fit=1;map.fitBounds(data.map(r=>[r.lat,r.lng]),{maxZoom:16,padding:[40,40]})}};
  load();tmr=setInterval(load,6000);
  chan=sb.channel('loc').on('postgres_changes',{event:'*',schema:'public',table:'locations'},p=>p.new&&put(p.new)).subscribe();
@@ -131,20 +131,43 @@ async function sset(k,v){const{error}=await sb.from('settings').upsert({key:k,va
 
 /* ---------- DOMICILIARIO ---------- */
 let shift,wid=null,last=0,wl,photo,dirty;
-async function courier(){clearInterval(poll);navigator.geolocation?.getCurrentPosition(()=>{},()=>{});app.innerHTML=`<header><span><label>${av(me)}<input type="file" accept="image/*" hidden onchange="setAv(this.files[0])"></label> <b>${e(me.name)}</b> <span class="mu">${me.plate?'🛵 '+e(me.plate):''}</span></span><span>${insB()} <button class="s" onclick="out()">Salir</button></span></header><main><section class="card" id="sh"></section><div id="ol"></div></main>`;await shiftUI();loadO();poll=setInterval(loadO,20000)}
+async function courier(){clearInterval(poll);navigator.geolocation?.getCurrentPosition(()=>{},()=>{});app.innerHTML=`<header><span><label>${av(me)}<input type="file" accept="image/*" hidden onchange="setAv(this.files[0])"></label> <b>${e(me.name)}</b> <span class="mu">${me.plate?'🛵 '+e(me.plate):''}</span></span><span>${insB()} <button class="s" onclick="out()">Salir</button></span></header><main><section class="card" id="sh"></section><div id="ol"></div></main>`;await shiftUI();loadO();poll=setInterval(loadO,10000);chan=sb.channel('ord').on('postgres_changes',{event:'*',schema:'public',table:'orders'},()=>{navigator.vibrate?.([200,100,200]);loadO()}).subscribe()}
 async function shiftUI(){const{data}=await sb.from('shifts').select('*').eq('courier_id',me.id).is('end_at',null).maybeSingle();shift=data;if(shift)track();
- $('#sh').innerHTML=shift?`<div class="row"><span>Jornada iniciada ${fdt(shift.start_at)}<br><span class="mu">📍 GPS activo (mantén esta pantalla abierta)</span></span><button class="rd" onclick="endShift()">Terminar jornada</button></div>`:`<button onclick="startShift()">▶ Iniciar jornada</button>`}
+ $('#sh').innerHTML=shift?`<div class="row"><span>Jornada iniciada ${fdt(shift.start_at)}<br><span class="mu">📍 GPS activo ${window.Capacitor?.isNativePlatform?.()?'(segundo plano activo)':'(mantén esta pantalla abierta)'}</span></span><button class="rd" onclick="endShift()">Terminar jornada</button></div>`:`<button onclick="startShift()">▶ Iniciar jornada</button>`}
 async function startShift(){const{error}=await sb.from('shifts').insert({courier_id:me.id});if(error)return alert(error.message);shiftUI()}
 async function endShift(){await sb.from('shifts').update({end_at:new Date().toISOString()}).eq('id',shift.id);stop();shiftUI()}
-function track(){if(wid!==null)return;if(!navigator.geolocation)return alert('Este dispositivo no tiene GPS');
- wid=navigator.geolocation.watchPosition(p=>{if(Date.now()-last<8000)return;last=Date.now();sb.from('locations').upsert({courier_id:me.id,lat:p.coords.latitude,lng:p.coords.longitude,updated_at:new Date().toISOString()})},()=>alert('Activa el permiso de ubicación'),{enableHighAccuracy:true});
- navigator.wakeLock?.request('screen').then(w=>wl=w).catch(()=>{})}
-function stop(){if(wid!==null)navigator.geolocation.clearWatch(wid);wid=null;wl?.release()}
-async function loadO(){const{data}=await sb.from('orders').select('id,type,client_name,client_phone,address,description,total,status').neq('status','entregado').order('created_at');
- $('#ol').innerHTML=(data||[]).map(o=>`<div class="card"><div class="row"><b>${TYPES[o.type]||o.type}</b><span class="chip">${ST[o.status]}</span></div>
- <div><b>${e(o.client_name)}</b> · <a href="tel:${e(o.client_phone)}">${e(o.client_phone)}</a></div><div>${e(o.address)}</div><div class="mu">${e(o.description)}</div><div class="big">${money(o.total)}</div>
- <div class="row"><button class="s" onclick="window.open('https://www.google.com/maps/search/?api=1&query='+encodeURIComponent(${JSON.stringify(o.address)}))">🗺 Ir</button>
- <button class="s" onclick="qr(${o.total})">Cobrar QR</button>${o.status=='en_camino'?`<button onclick="deliver('${o.id}')">✔ Entregar</button>`:`<button onclick="go('${o.id}')">Salir</button>`}</div></div>`).join('')||'<p class="mu">Sin pedidos asignados.</p>'}
+let lp,hb,bgw,tp,nmap,nt;
+const BGP=()=>window.Capacitor?.Plugins?.BackgroundGeolocation;
+function send(){if(!lp||!me)return;sb.from('locations').upsert({courier_id:me.id,lat:lp.lat,lng:lp.lng,acc:lp.acc,updated_at:new Date().toISOString()},{onConflict:'courier_id'}).then(r=>{if(r.error)console.warn('GPS:',r.error.message)})}
+function track(){if(wid!==null)return;const set=(la,ln,ac)=>{lp={lat:la,lng:ln,acc:ac};send()};
+ if(BGP()){wid='bg';BGP().addWatcher({backgroundTitle:'Jornada activa',backgroundMessage:'Compartiendo ubicación con la empresa',requestPermissions:true,stale:false,distanceFilter:0},(l,er)=>{if(er)return er.code==='NOT_AUTHORIZED'&&alert('Activa la ubicación "Siempre" para esta app');set(l.latitude,l.longitude,l.accuracy)}).then(id=>bgw=id)}
+ else{if(!navigator.geolocation)return alert('Este dispositivo no tiene GPS');wid=navigator.geolocation.watchPosition(p=>set(p.coords.latitude,p.coords.longitude,p.coords.accuracy),er=>console.warn(er.message),{enableHighAccuracy:true,maximumAge:0})}
+ hb=setInterval(send,10000);navigator.wakeLock?.request('screen').then(w=>wl=w).catch(()=>{})}
+function stop(){clearInterval(hb);if(bgw&&BGP())BGP().removeWatcher({id:bgw});bgw=null;if(typeof wid=='number')navigator.geolocation.clearWatch(wid);wid=null;wl?.release()}
+document.addEventListener('visibilitychange',()=>{if(shift&&document.visibilityState=='visible'){navigator.wakeLock?.request('screen').then(w=>wl=w).catch(()=>{});send()}});
+function tg(){const f=$('#f'),d=f.elements.type.value=='domicilio';f.querySelectorAll('.dom').forEach(x=>{x.style.display=d?'':'none';x.disabled=!d});f.elements.desc.placeholder=d?'Detalle del pedido':f.elements.type.value=='mandado'?'Describe el mandado':'Describe a dónde lo llevas / recoges'}
+async function geo(a){const m=String(a).match(/^\s*(-?\d+\.?\d*)\s*,\s*(-?\d+\.?\d*)\s*$/);if(m)return[+m[1],+m[2]];
+ try{const r=await(await fetch('https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=co&q='+encodeURIComponent(a+', Barranquilla'))).json();return r[0]?[+r[0].lat,+r[0].lon]:null}catch{return null}}
+async function loadO(){const{data}=await sb.from('orders').select('id,type,client_name,client_phone,address,description,total,status,courier_id').neq('status','entregado').or(`courier_id.eq.${me.id},and(courier_id.is.null,status.eq.pendiente)`).order('created_at');
+ $('#ol').innerHTML=(data||[]).map(o=>{const mine=o.courier_id==me.id,d=o.type=='domicilio';return `<div class="card"><div class="row"><b>${TYPES[o.type]||o.type}</b><span class="chip">${mine?ST[o.status]:'Disponible'}</span></div>
+ ${d?`<div><b>${e(o.client_name)}</b> · <a href="tel:${e(o.client_phone)}">${e(o.client_phone)}</a></div><div>${e(o.address)}</div>`:''}<div class="${d?'mu':''}">${e(o.description)}</div>${d&&mine?`<div class="big">${money(o.total)}</div>`:''}
+ <div class="row">${!mine?`<button onclick="accept('${o.id}')">✋ Aceptar</button>`:`${d?`<button class="s" onclick="nav('${o.id}')">🗺 Ruta</button><button class="s" onclick="qr(${o.total})">Cobrar QR</button><button class="s" onclick="comp('${o.id}')">💳 Comprobante</button>`:''}${o.status=='en_camino'?`<button onclick="deliver('${o.id}')">✔ Entregar</button>`:`<button onclick="go('${o.id}')">Salir</button>`}`}</div></div>`}).join('')||'<p class="mu">Sin pedidos.</p>'}
+async function accept(id){const{data}=await sb.from('orders').update({courier_id:me.id,status:'asignado'}).eq('id',id).is('courier_id',null).select('id');if(!data?.length)alert('Otro domiciliario ya lo tomó');loadO()}
+async function nav(id){const{data:o}=await sb.from('orders').select('address,dest_lat,dest_lng').eq('id',id).single();
+ const d=o.dest_lat!=null?[o.dest_lat,o.dest_lng]:await geo(o.address);
+ openM(`<h3>Ruta a la entrega</h3><div id="nm" style="height:48vh;border-radius:10px"></div><p id="ni" class="mu">Calculando…</p><div class="row"><button onclick="window.open('https://www.google.com/maps/dir/?api=1&destination='+encodeURIComponent('${d?d.join(','):e(o.address).replace(/'/g,'')}'))">Abrir en Google Maps</button><button class="s" onclick="closeM()">Cerrar</button></div>`);
+ nmap=L.map('nm').setView(d||[10.96,-74.78],14);L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OpenStreetMap'}).addTo(nmap);
+ if(!d)return $('#ni').textContent='No pude ubicar la dirección; usa Google Maps.';
+ L.marker(d).addTo(nmap);let dot,rt,first=1;
+ const draw=async()=>{if(!lp)return;try{const r=await(await fetch(`https://router.project-osrm.org/route/v1/driving/${lp.lng},${lp.lat};${d[1]},${d[0]}?overview=full&geometries=geojson&steps=true`)).json(),R=r.routes[0];if(!nmap)return;
+  rt&&nmap.removeLayer(rt);rt=L.geoJSON(R.geometry,{style:{color:'#000',weight:5}}).addTo(nmap);
+  dot?dot.setLatLng([lp.lat,lp.lng]):dot=L.circleMarker([lp.lat,lp.lng],{radius:8,color:'#0a0',fillOpacity:1}).addTo(nmap);
+  if(first){first=0;nmap.fitBounds(rt.getBounds(),{padding:[30,30]})}
+  $('#ni').innerHTML=`<b>${(R.distance/1000).toFixed(1)} km · ${Math.round(R.duration/60)} min</b><br>`+R.legs[0].steps.slice(0,4).map(s=>e((s.maneuver.modifier||s.maneuver.type)+' · '+(s.name||'')+' ('+Math.round(s.distance)+' m)')).join('<br>')}catch{$('#ni').textContent='Sin ruta (revisa internet)'}};
+ if(!lp)navigator.geolocation.getCurrentPosition(p=>{lp={lat:p.coords.latitude,lng:p.coords.longitude};draw()});
+ draw();nt=setInterval(draw,15000)}
+function comp(id){tp=null;openM(`<h3>Comprobante de transferencia</h3><input type="file" accept="image/*" onchange="shrink(this.files[0],900,.7).then(d=>{tp=d;$('#tpv').src=d;$('#tpv').style.display='block'})"><img id="tpv" style="display:none"><div class="row"><button onclick="saveComp('${id}')">Guardar</button><button class="s" onclick="closeM()">Cancelar</button></div>`)}
+async function saveComp(id){if(!tp)return alert('Primero toma o elige la foto');const{error}=await sb.from('orders').update({transfer_photo:tp}).eq('id',id);alert(error?error.message:'Comprobante enviado');if(!error)closeM()}
 async function go(id){await sb.from('orders').update({status:'en_camino'}).eq('id',id);loadO()}
 async function qr(t){const{data}=await sb.from('settings').select('value').eq('key','pay_qr').maybeSingle();
  openM(`<h3>Total a pagar</h3><div class="big">${money(t)}</div>${data?`<img src="${data.value}">`:'<p class="mu">El administrador aún no cargó el QR.</p>'}<button onclick="closeM()">Cerrar</button>`)}
