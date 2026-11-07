@@ -37,6 +37,7 @@ button.s{background:#fff;color:var(--tx);border:1px solid var(--tx)}button.rd{ba
 th{text-transform:uppercase;font-size:11px;letter-spacing:.06em;color:var(--mu);font-weight:500}
 a{color:var(--tx)}hr{border:0;border-top:1px solid var(--bd);margin:14px 0}
 .leaflet-tile-pane{filter:grayscale(1) contrast(1.05)}#map{border:1px solid var(--tx)}
+.addr-wrap{position:relative;grid-column:1/-1}.addr-wrap input{width:100%}.addr-suggest{position:absolute;z-index:30;top:100%;left:0;right:0;background:#fff;border:1px solid #bbb;border-radius:8px;box-shadow:0 5px 18px #0002;max-height:240px;overflow:auto}.addr-option{display:block;width:100%;text-align:left;padding:11px 13px;border:0;border-bottom:1px solid #eee;background:#fff;color:#111;border-radius:0;font-size:14px}.addr-option:hover{background:#f2f2f2}.addr-help{font-size:12px;color:#666;margin:5px 2px}
 .pin{border-color:#000}.av{background:#000;color:#fff}
 </style><script>window.CUPISSA_NATIVE_READY=new Promise(resolve=>window.addEventListener('cupissa-native-ready',resolve,{once:true}));</script><script type="module" src="/src/native-bridge.js"></script></head><body>
 <div id="app"></div><div id="modal"><div></div></div>
@@ -85,7 +86,7 @@ async function pedidos(){
  $('#m').innerHTML=`<section class="card"><div class="row"><h3>Nuevo servicio</h3><button class="rd" onclick="delall()">Borrar todos</button></div><form id="f"><div class="g">
  <select name="type" onchange="tg()">${Object.entries(TYPES).map(x=>`<option value="${x[0]}">${x[1]}</option>`).join('')}</select>
  <input class="dom" name="name" placeholder="Nombre del cliente"><input class="dom" name="phone" placeholder="Teléfono" inputmode="tel">
- <input class="dom" name="address" placeholder="Dirección (o coordenadas 10.96,-74.78)" required>
+ <div class="addr-wrap dom"><input id="addressSearch" name="address" autocomplete="off" placeholder="Busca la dirección, barrio o lugar…" required><div id="addressSuggestions" class="addr-suggest" hidden></div><div class="addr-help">Escribe la dirección y selecciona una sugerencia. El punto del mapa se ubicará automáticamente.</div><input type="hidden" name="dest_lat"><input type="hidden" name="dest_lng"></div>
  <input class="dom" name="total" type="number" placeholder="Total a cobrar" inputmode="numeric"><input name="cost" type="number" placeholder="🔒 Precio oculto (lo que pagarías)" inputmode="numeric">
  <select name="courier">${copts()}</select></div><textarea name="desc" placeholder="Detalle del pedido / mandado"></textarea><button>Crear servicio</button></form></section>
  ${os.map(o=>`<div class="card"><div class="row"><b>${TYPES[o.type]||o.type} · ${e(o.client_name)}</b><span class="chip">${ST[o.status]}</span></div>
@@ -147,7 +148,40 @@ async function track(){if(wid!==null)return;const set=(la,ln,ac)=>{lp={lat:la,ln
  hb=setInterval(send,10000);navigator.wakeLock?.request('screen').then(w=>wl=w).catch(()=>{})}
 function stop(){clearInterval(hb);if(bgw&&BGP())BGP().removeWatcher({id:bgw});bgw=null;if(typeof wid=='number')navigator.geolocation.clearWatch(wid);wid=null;wl?.release()}
 document.addEventListener('visibilitychange',()=>{if(shift&&document.visibilityState=='visible'){navigator.wakeLock?.request('screen').then(w=>wl=w).catch(()=>{});send()}});
-function tg(){const f=$('#f'),d=f.elements.type.value=='domicilio';f.querySelectorAll('.dom').forEach(x=>{x.style.display=d?'':'none';x.disabled=!d});f.elements.desc.placeholder=d?'Detalle del pedido':f.elements.type.value=='mandado'?'Describe el mandado':'Describe a dónde lo llevas / recoges'}
+function tg(){const f=$('#f'),d=f.elements.type.value=='domicilio';f.querySelectorAll('.dom').forEach(x=>{x.style.display=d?'':'none';if(x.matches('input,select,textarea'))x.disabled=!d;x.querySelectorAll('input,select,textarea').forEach(y=>y.disabled=!d)});f.elements.desc.placeholder=d?'Detalle del pedido':f.elements.type.value=='mandado'?'Describe el mandado':'Describe a dónde lo llevas / recoges'}
+let addrTimer=0,addrAbort=null;
+function setupAddressSearch(){
+ const input=$('#addressSearch'),box=$('#addressSuggestions'),form=$('#f');if(!input||!box)return;
+ const lat=form.elements.dest_lat,lng=form.elements.dest_lng;
+ const close=()=>{box.hidden=true;box.innerHTML=''};
+ input.addEventListener('input',()=>{
+  lat.value='';lng.value='';clearTimeout(addrTimer);const q=input.value.trim();
+  if(q.length<4){close();return}
+  box.hidden=false;box.innerHTML='<div class="addr-option">Buscando direcciones…</div>';
+  addrTimer=setTimeout(async()=>{
+   try{
+    addrAbort?.abort();addrAbort=new AbortController();
+    const query=/barranquilla|soledad|malambo|puerto colombia|galapa|cartagena|santa marta/i.test(q)?q:q+', Barranquilla, Colombia';
+    const url='https://photon.komoot.io/api/?limit=7&lang=es&q='+encodeURIComponent(query);
+    const r=await fetch(url,{signal:addrAbort.signal});if(!r.ok)throw Error('search');
+    const data=await r.json(),features=data.features||[];
+    if(!features.length){box.innerHTML='<div class="addr-option">No encontré coincidencias. Prueba con una dirección más completa.</div>';return}
+    box.innerHTML=features.map((f,i)=>{
+     const p=f.properties||{},parts=[p.name,p.housenumber&&p.street?`${p.street} ${p.housenumber}`:p.street,p.district,p.city||p.locality,p.state].filter((v,j,a)=>v&&a.indexOf(v)===j);
+     const label=parts.join(', ')||q;return `<button type="button" class="addr-option" data-i="${i}">📍 ${e(label)}</button>`
+    }).join('');
+    [...box.querySelectorAll('[data-i]')].forEach(btn=>btn.addEventListener('click',()=>{
+     const f=features[+btn.dataset.i],p=f.properties||{},c=f.geometry?.coordinates;
+     if(!c||c.length<2)return;
+     const parts=[p.name,p.housenumber&&p.street?`${p.street} ${p.housenumber}`:p.street,p.district,p.city||p.locality,p.state,'Colombia'].filter((v,j,a)=>v&&a.indexOf(v)===j);
+     input.value=parts.join(', ');lng.value=c[0];lat.value=c[1];close();
+    }));
+   }catch(err){if(err.name!=='AbortError')box.innerHTML='<div class="addr-option">No fue posible buscar. Verifica tu conexión e inténtalo de nuevo.</div>'}
+  },550);
+ });
+ input.addEventListener('keydown',ev=>{if(ev.key==='Escape')close()});
+ document.addEventListener('click',ev=>{if(!box.contains(ev.target)&&ev.target!==input)close()});
+}
 async function geo(a){const m=String(a).match(/^\s*(-?\d+\.?\d*)\s*,\s*(-?\d+\.?\d*)\s*$/);if(m)return[+m[1],+m[2]];
  try{const r=await(await fetch('https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=co&q='+encodeURIComponent(a+', Barranquilla'))).json();return r[0]?[+r[0].lat,+r[0].lon]:null}catch{return null}}
 async function loadO(){const{data}=await sb.from('orders').select('id,type,client_name,client_phone,address,description,total,status,courier_id').neq('status','entregado').or(`courier_id.eq.${me.id},and(courier_id.is.null,status.eq.pendiente)`).order('created_at');
