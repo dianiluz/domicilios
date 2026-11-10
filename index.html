@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>DOMICILIOS</title><meta name="robots" content="noindex,nofollow"><meta name="theme-color" content="#000000">
+<title>RUTA CUPISSA · Domis</title><meta name="robots" content="noindex,nofollow"><meta name="theme-color" content="#000000">
 <link rel="manifest" href="manifest.json"><link rel="icon" href="logo/favicon.png"><link rel="apple-touch-icon" href="logo/apple-touch-icon.png">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <style>
@@ -42,10 +42,18 @@ a{color:var(--tx)}hr{border:0;border-top:1px solid var(--bd);margin:14px 0}
 .ac{position:relative}.ac ul{position:absolute;left:0;right:0;top:100%;z-index:40;margin:2px 0 0;padding:4px;list-style:none;background:#fff;border:1px solid var(--tx);border-radius:10px;box-shadow:0 8px 24px -8px #0004;max-height:260px;overflow:auto;display:none}
 .ac li{padding:8px 10px;border-radius:8px;cursor:pointer;font-size:14px;line-height:1.3}.ac li:hover,.ac li.on{background:#0000000f}.ac li small{display:block;color:var(--mu)}
 .ac .ok{color:#0a7;font-size:13px}.ac .no{color:var(--rd);font-size:13px}
+
+/* Vista de clientes: integración conservando los estilos originales */
+#modal:has(#wazeMapWrap)>div{max-width:min(96vw,800px)}
+.ruta-cliente{max-width:1060px}.ruta-cliente .ruta-head{background:linear-gradient(110deg,#13091b,#25112a);color:#fff;border-color:#8d477b}.ruta-head h2{color:#fff}.ruta-head .mu{color:#ddd}
+.ruta-actions .card{background:#171022;color:#fff;border-color:#b94183}.ruta-actions .card .mu{color:#d2becb}.ruta-actions .card button{background:#db137a;color:#fff}.ruta-kpis .big{color:#b90068}.ruta-chat-msg{background:#f2edf2;border-radius:12px;padding:10px;margin:6px 0;max-width:85%;overflow-wrap:anywhere}.ruta-chat-msg.own{background:#f8cde3;margin-left:auto}.ruta-chat-msg small{display:block;font-size:10px;opacity:.7}
 </style><script>window.CUPISSA_NATIVE_READY=new Promise(resolve=>{window.addEventListener('cupissa-native-ready',resolve,{once:true});setTimeout(resolve,5000)});</script><script type="module" src="/src/native-bridge.js" onerror="window.dispatchEvent(new Event('cupissa-native-ready'))"></script></head><body>
 <div id="app"></div><div id="modal"><div></div></div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script src="js/maps-config.js"></script>
+<script defer src="js/navegacion-config.js"></script>
+<script defer src="js/navegacion-ruta.js"></script>
 <script>
 const $=s=>document.querySelector(s),app=$('#app');
 const e=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -73,15 +81,15 @@ function snap(){const v=$('#vid'),c=document.createElement('canvas'),k=Math.min(
 init();
 
 async function init(){try{await window.CUPISSA_NATIVE_READY;const opts=window.CUPISSA_FETCH?{global:{fetch:window.CUPISSA_FETCH}}:{};sb=supabase.createClient(cfg.u,cfg.k,opts);const{data:{session}}=await sb.auth.getSession();session?start(session.user):login()}catch(err){app.innerHTML='<div class="card narrow"><h2>No se pudo iniciar CUPISSA DOMIS</h2><p class="mu">Revisa tu conexión a internet e inténtalo de nuevo.</p></div>';console.error(err)}}
-function login(){app.innerHTML=`<div class="card narrow" style="text-align:center"><img src="logo/logo.png" alt="Cupissa" style="max-height:70px;margin-bottom:8px" onerror="this.style.display='none'"><h2>DOMICILIOS</h2><input id="em" type="email" placeholder="Correo"><input id="pw" type="password" placeholder="Contraseña (mín. 6)"><div class="row"><button onclick="auth(1)">Entrar</button></div>${insB()}</div>`}
+function login(){if(new URLSearchParams(location.search).get('portal')==='cliente'){location.replace('clientes/');return}app.innerHTML=`<div class="card narrow" style="text-align:center"><img src="logo/logo.png" alt="Cupissa" style="max-height:70px;margin-bottom:8px" onerror="this.style.display='none'"><h2>RUTA CUPISSA</h2><p class="mu">Acceso administrativo y de conductores</p><input id="em" type="email" placeholder="Correo"><input id="pw" type="password" placeholder="Contraseña (mín. 6)"><div class="row"><button onclick="auth(1)">Entrar</button><button class="s" onclick="googleStaff()">Continuar con Google</button></div><hr><p class="mu">¿Necesitas solicitar un servicio?</p><a href="clientes/"><button class="s">Entrar al portal de clientes</button></a>${insB()}</div>`}
 async function auth(inn){const em=$('#em').value,pw=$('#pw').value;const r=inn?await sb.auth.signInWithPassword({email:em,password:pw}):await sb.auth.signUp({email:em,password:pw});
  if(r.error)return alert(r.error.message);if(!r.data.session)return alert('Revisa tu correo para confirmar (o desactiva la confirmación en Supabase).');start(r.data.user)}
 async function out(){stop();clearInterval(poll);await sb.auth.signOut();location.reload()}
-async function start(u){const{data}=await sb.from('profiles').select('*').eq('id',u.id).single();me=data;if(!me)return alert('Perfil no encontrado');if(me.active===false){await sb.auth.signOut();return alert('Esta cuenta fue desactivada')}me.role=='admin'?admin():courier()}
+async function start(u){const{data:staff,error:se}=await sb.from('profiles').select('*').eq('id',u.id).maybeSingle();if(staff?.role==='admin'||staff?.role==='courier'){me=staff;if(me.active===false){await sb.auth.signOut();return alert('Esta cuenta fue desactivada')}return me.role==='admin'?admin():courier()}const{data:customer}=await sb.from('ruta_clientes').select('*').eq('id',u.id).maybeSingle();if(customer){me={...customer,role:'passenger',name:customer.full_name||u.email};location.replace('clientes/');return}await sb.auth.signOut();login();alert('Esta cuenta no tiene acceso al panel de personal. Los clientes ingresan desde el portal de clientes.')}
 
 /* ---------- ADMIN ---------- */
-function admin(){app.innerHTML=`<header><span><img src="logo/logo.png" height="28" style="vertical-align:middle" onerror="this.style.display='none'"> <b>Cupissa Domis</b></span><nav>${[['pedidos','Servicios'],['equipo','Equipo y mapa'],['jornadas','Jornadas'],['mensajes','Mensajes'],['ahorro','Ahorro']].map(t=>`<button class="s" onclick="tab('${t[0]}')">${t[1]}${t[0]=='mensajes'?'<b id="mb"></b>':''}</button>`).join('')}</nav><span>${insB()} <button class="s" onclick="out()">Salir</button></span></header><main id="m"></main>`;tab('pedidos');adminMsgs()}
-async function tab(t){window.curTab=t;clearInterval(tmr);if(chan){sb.removeChannel(chan);chan=0}if(map){map.remove();map=0}$('#m').innerHTML='Cargando…';await({pedidos,equipo,jornadas,mensajes,ahorro})[t]()}
+function admin(){app.innerHTML=`<header><span><img src="logo/logo.png" height="28" style="vertical-align:middle" onerror="this.style.display='none'"> <b>Cupissa Domis</b></span><nav>${[['pedidos','Servicios'],['equipo','Equipo y mapa'],['jornadas','Jornadas'],['mensajes','Mensajes'],['ahorro','Ahorro'],['clientes','Clientes y solicitudes']].map(t=>`<button class="s" onclick="tab('${t[0]}')">${t[1]}${t[0]=='mensajes'?'<b id="mb"></b>':''}</button>`).join('')}</nav><span>${insB()} <button class="s" onclick="out()">Salir</button></span></header><main id="m"></main>`;tab('pedidos');adminMsgs()}
+async function tab(t){window.curTab=t;clearInterval(tmr);if(chan){sb.removeChannel(chan);chan=0}if(map){map.remove();map=0}$('#m').innerHTML='Cargando…';await({pedidos,equipo,jornadas,mensajes,ahorro,clientes})[t]()}
 const copts=s=>`<option value="">Sin asignar</option>`+C.map(c=>`<option value="${c.id}" ${c.id==s?'selected':''}>${e(c.name)}</option>`).join('');
 
 async function pedidos(){
@@ -184,28 +192,12 @@ function addrSearch(){const f=$('#f'),i=$('#adr'),l=$('#adl'),st=$('#ads');if(!i
 async function loadO(){const{data}=await sb.from('orders').select('id,type,client_name,client_phone,address,description,total,status,courier_id,created_at').neq('status','entregado').or(`courier_id.eq.${me.id},and(courier_id.is.null,status.eq.pendiente)`).order('created_at');
  $('#ol').innerHTML=(data||[]).map(o=>{const mine=o.courier_id==me.id,d=true;OD[o.id]=o;return `<div class="card"><div class="row"><b>${TYPES[o.type]||o.type}</b><span class="chip">${mine?ST[o.status]:'Disponible'}</span></div><div class="mu">📅 ${fdt(o.created_at)}</div>
  ${d?`<div><b>${e(o.client_name)}</b> · <a href="tel:${e(o.client_phone)}">${e(o.client_phone)}</a></div><div>${e(o.address)}</div>`:''}<div class="${d?'mu':''}">${e(o.description)}</div>${d&&mine?`<div class="big">${money(o.total)}</div>`:''}
- <div class="row">${!mine?`<button onclick="accept('${o.id}')">✋ Aceptar</button>`:`${d?`<button class="s" onclick="nav('${o.id}')">🗺 Ruta</button><button class="s" onclick="qr(${o.total})">Cobrar QR</button><button class="s" onclick="comp('${o.id}')">💳 Comprobante</button><button class="s" onclick="conf('${o.id}','entrega')">✅ Confirma entrega</button><button class="s" onclick="conf('${o.id}','transferencia')">💸 Confirma transferencia</button><button class="s" onclick="chat('${me.id}','${o.id}')">💬</button>`:''}${o.status=='en_camino'?`<button onclick="deliver('${o.id}')">✔ Entregar</button>`:`<button onclick="go('${o.id}')">Salir</button>`}`}</div></div>`}).join('')||'<p class="mu">Sin pedidos.</p>'}
+ <div class="row">${!mine?`<button onclick="accept('${o.id}')">✋ Aceptar</button>`:`${d?`<button class="s" onclick="RutaNavegacion.startOrder('${o.id}')">🗺 Ruta con voz</button><button class="s" onclick="qr(${o.total})">Cobrar QR</button><button class="s" onclick="comp('${o.id}')">💳 Comprobante</button><button class="s" onclick="conf('${o.id}','entrega')">✅ Confirma entrega</button><button class="s" onclick="conf('${o.id}','transferencia')">💸 Confirma transferencia</button><button class="s" onclick="chat('${me.id}','${o.id}')">💬</button>`:''}${o.status=='en_camino'?`<button onclick="deliver('${o.id}')">✔ Entregar</button>`:`<button onclick="go('${o.id}')">Salir</button>`}`}</div></div>`}).join('')||'<p class="mu">Sin pedidos.</p>'}
 async function accept(id){const{data}=await sb.from('orders').update({courier_id:me.id,status:'asignado'}).eq('id',id).is('courier_id',null).select('id');if(!data?.length)alert('Otro domiciliario ya lo tomó');loadO()}
 const MAN={left:'a la izquierda',right:'a la derecha',straight:'recto','slight left':'ligeramente a la izquierda','slight right':'ligeramente a la derecha','sharp left':'cerrado a la izquierda','sharp right':'cerrado a la derecha',uturn:'en U'};
 const ins=s=>{const m=s.maneuver,t=m.type,w=MAN[m.modifier]||'',n=s.name?' por '+s.name:'';return t=='arrive'?'Llegaste al destino':t=='depart'?'Sal'+n:/roundabout|rotary/.test(t)?'Entra a la rotonda'+n:/turn|end of road|fork|ramp/.test(t)?'Gira '+w+n:'Continúa '+w+n};
-function navX(){clearInterval(nt);if(nw!=null)navigator.geolocation.clearWatch(nw);nw=null;nmap?.remove();nmap=0;$('#navv')?.remove();speechSynthesis?.cancel()}
-async function nav(id){const{data:o}=await sb.from('orders').select('address,dest_lat,dest_lng').eq('id',id).single();
- const d=o.dest_lat!=null?[o.dest_lat,o.dest_lng]:await geo(o.address);navX();
- const v=document.createElement('div');v.id='navv';v.style.cssText='position:fixed;inset:0;z-index:60;background:#fff;display:flex;flex-direction:column';
- v.innerHTML='<div id="nm" style="flex:1"></div><div style="padding:12px;border-top:1px solid #000"><div id="ni" class="mu">Calculando…</div><div class="row"><button class="s" onclick="navX()">✕ Cerrar mapa</button><button class="s" onclick="lp&&nmap.setView([lp.lat,lp.lng],17)">📍 Centrar</button></div></div>';
- document.body.appendChild(v);
- nmap=L.map('nm').setView(d||[10.96,-74.78],15);L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OpenStreetMap'}).addTo(nmap);
- if(!d)return $('#ni').textContent='No pude ubicar la dirección. Pide al administrador que corrija la dirección.';
- L.marker(d).addTo(nmap);let dot,rt,fit=1,key='';
- const upd=()=>{if(!lp||!nmap)return;dot?dot.setLatLng([lp.lat,lp.lng]):dot=L.circleMarker([lp.lat,lp.lng],{radius:9,color:'#fff',weight:3,fillColor:'#0a7',fillOpacity:1}).addTo(nmap)};
- const draw=async()=>{if(!lp||!nmap)return;try{const r=await(await fetch(`https://router.project-osrm.org/route/v1/driving/${lp.lng},${lp.lat};${d[1]},${d[0]}?overview=full&geometries=geojson&steps=true`)).json(),R=r.routes[0];if(!nmap)return;
-  rt&&nmap.removeLayer(rt);rt=L.geoJSON(R.geometry,{style:{color:'#000',weight:6}}).addTo(nmap);upd();
-  if(fit){fit=0;nmap.fitBounds(rt.getBounds(),{padding:[40,40]})}
-  const st=R.legs[0].steps,nx=st[1]||st[0],tx=ins(nx);
-  $('#ni').innerHTML=`<div class="big">${Math.round(st[0].distance)} m</div><b>${e(tx)}</b><div class="mu">${(R.distance/1000).toFixed(1)} km · ${Math.round(R.duration/60)} min al destino</div>`;
-  if(tx!=key){key=tx;try{speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(tx);u.lang='es-CO';speechSynthesis.speak(u)}catch{}}}catch{$('#ni').textContent='Sin ruta (revisa internet)'}};
- nw=navigator.geolocation.watchPosition(p=>{const first=!lp;lp={lat:p.coords.latitude,lng:p.coords.longitude,acc:p.coords.accuracy};upd();if(first)draw()},()=>{$('#ni').textContent='Activa el permiso de ubicación'},{enableHighAccuracy:true,maximumAge:0});
- upd();draw();nt=setInterval(draw,12000)}
+function navX(){window.RutaNavegacion?.stop()}
+async function nav(id){return window.RutaNavegacion?.startOrder(id)}
 function comp(id){photo=null;openM(`<h3>Comprobante de transferencia</h3><button class="s" id="cb" onclick="cam()">📷 Abrir cámara trasera</button><video id="vid" autoplay playsinline muted style="display:none;width:100%;border-radius:8px"></video><button id="snap" style="display:none" onclick="snap()">Capturar</button><img id="prev" style="display:none"><div class="row"><button onclick="saveComp('${id}')">Enviar</button><button class="s" onclick="closeM()">Cancelar</button></div>`);cam()}
 async function saveComp(id){if(!photo)return alert('Primero captura la foto');const{error}=await sb.from('orders').update({transfer_photo:photo}).eq('id',id);if(error)return alert(error.message);alert('Comprobante enviado');closeM()}
 async function go(id){await sb.from('orders').update({status:'en_camino'}).eq('id',id);loadO()}
@@ -246,4 +238,86 @@ async function adminMsgs(){const u=async()=>{const{count}=await sb.from('message
 async function mensajes(){const[{data:ps},{data:ms}]=await Promise.all([sb.from('profiles').select('*').eq('role','courier'),sb.from('messages').select('*').order('created_at',{ascending:false}).limit(400)]);C=(ps||[]).filter(x=>x.active!==false);
  $('#m').innerHTML='<section class="card"><h3>Mensajes</h3>'+(C.map(c=>{const l=(ms||[]).filter(x=>x.courier_id==c.id),la=l[0],un=l.filter(x=>x.sender_role=='courier'&&!x.read).length;return `<div class="card row"><span>${av(c)} <b>${e(c.name)}</b>${un?` <span class="chip" style="background:#000;color:#fff">${un} nuevo${un>1?'s':''}</span>`:''}<br><small class="mu">${la?fdt(la.created_at)+' · '+e(la.body.slice(0,70)):'Sin mensajes'}</small></span><button onclick="chat('${c.id}')">💬 Abrir</button></div>`}).join('')||'<p class="mu">No hay domiciliarios.</p>')+'</section>'}
 async function delc(id){const c=C.find(x=>x.id==id)||{};if(!confirm('¿Eliminar a '+(c.name||'este domiciliario')+'?\nPerderá el acceso. Sus servicios pendientes quedarán sin asignar y el historial se conserva.'))return;const{error}=await sb.rpc('delete_courier',{uid:id});if(error)return alert('No se pudo eliminar: '+error.message+'\n\n¿Ejecutaste el SQL de CUPISSA_SQL.sql en Supabase?');tab('equipo')}
+
+
+/* Navegador JS propio: sin redireccion a Waze ni Google. */
+function abrirWaze(address,lat=null,lng=null){return RutaNavegacion.open({address,dest_lat:lat,dest_lng:lng})}
+function mostrarWaze(address,lat=null,lng=null){return abrirWaze(address,lat,lng)}
+async function wazePedido(id){return RutaNavegacion.startOrder(id)}
+async function wazeRuta(id){const{data,error}=await sb.from('orders').select('address,dest_lat,dest_lng').eq('id',id).single();if(error||!data)return alert('No fue posible consultar el destino.');return RutaNavegacion.open(data)}
+async function googleStaff(){try{const{error}=await sb.auth.signInWithOAuth({provider:'google',options:{redirectTo:new URL('./',location.href).href}});if(error)throw error}catch(err){alert('No se pudo iniciar con Google: '+err.message+'\nActiva Google en Supabase Auth > Providers.')}}
+function registroCliente(){location.href='clientes/'}
+let rutaClientRows=[],rutaClientAbonos=[];
+const rutaMoney=v=>money(Number(v||0));
+function client(){
+ clearInterval(poll);clearInterval(tmr);if(chan){sb.removeChannel(chan);chan=0}
+ const name=me.full_name||me.name||'Cliente';
+ app.innerHTML=`<header><span><img src="logo/logo.png" height="28" onerror="this.style.display='none'"> <b>RUTA CUPISSA</b> · Cliente</span><span><button class="s" onclick="out()">Salir</button></span></header>
+ <main class="ruta-cliente">
+ <section class="card ruta-head"><div class="row"><div><h2>MI PANEL DE SERVICIOS</h2><p class="mu">Hola, ${e(name)}. Consulta viajes, envíos y pagos.</p></div><label class="mu">Filtrar mes<input type="month" id="rutaMes" onchange="renderClient()"></label></div></section>
+ <section class="g ruta-actions"><div class="card"><h3>Solicitar un servicio</h3><p class="mu">Programa fecha, hora, origen y destino.</p><button onclick="solicitarRuta()">+ SOLICITAR</button></div><div class="card"><h3>Chat directo</h3><p class="mu">Escribe al equipo de soporte.</p><button class="s" onclick="chatCliente()">ABRIR CHAT</button></div></section>
+ <section class="g ruta-kpis"><div class="card"><div class="mu">SERVICIOS TOTALES</div><div id="rutaTotal" class="big">0</div></div><div class="card"><div class="mu">SALDO PENDIENTE</div><div id="rutaSaldo" class="big">$0</div><small class="mu" id="rutaAbonos"></small></div><div class="card"><div class="mu">ÚLTIMO SERVICIO</div><b id="rutaUltimo">Sin registros</b><div class="mu" id="rutaUltimaRuta"></div></div></section>
+ <section class="card"><div class="row"><h3>Mis servicios</h3><button class="s" onclick="cargarClient()">Actualizar</button></div><div style="overflow-x:auto"><table><thead><tr><th>Fecha / hora</th><th>Origen → destino</th><th>Precio</th><th>Navegación</th></tr></thead><tbody id="rutaHistorial"><tr><td colspan="4">Cargando…</td></tr></tbody></table></div></section>
+ <section class="card"><h3>Solicitudes enviadas</h3><div id="rutaRequests">Cargando…</div></section>
+ </main>`;
+ const now=new Date();$('#rutaMes').value=`${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;cargarClient();
+}
+async function cargarClient(){
+ const [a,b,c]=await Promise.all([sb.from('servicios_transporte').select('id,date,time,origin,destination,price').eq('passenger_id',me.id).order('date',{ascending:false}),sb.from('abonos_pasajero').select('amount').eq('passenger_id',me.id),sb.from('solicitudes_servicio').select('id,date,time,origin,destination,status').eq('passenger_id',me.id).order('created_at',{ascending:false}).limit(30)]);
+ if(a.error||b.error||c.error){$('#rutaHistorial').innerHTML=`<tr><td colspan="4" class="mu">No se pudieron consultar los datos: ${e((a.error||b.error||c.error).message)}. Comprueba el SQL adicional.</td></tr>`;return}
+ rutaClientRows=a.data||[];rutaClientAbonos=b.data||[];
+ const rs=c.data||[];$('#rutaRequests').innerHTML=rs.map(x=>`<div class="row" style="padding:8px 0;border-bottom:1px solid var(--bd)"><span>${e(x.date)} ${e(x.time)} · ${e(x.origin)} → ${e(x.destination)}</span><span class="chip">${e(x.status)}</span></div>`).join('')||'<p class="mu">Aún no tienes solicitudes.</p>';
+ renderClient();
+}
+function renderClient(){
+ const month=$('#rutaMes')?.value||'',filtered=rutaClientRows.filter(x=>!month||String(x.date).startsWith(month));
+ $('#rutaTotal').textContent=filtered.length;
+ const total=rutaClientRows.reduce((a,x)=>a+Number(x.price||0),0),abonos=rutaClientAbonos.reduce((a,x)=>a+Number(x.amount||0),0);
+ $('#rutaSaldo').textContent=rutaMoney(Math.max(0,total-abonos));$('#rutaAbonos').textContent='Total abonado: '+rutaMoney(abonos);
+ const last=rutaClientRows[0];$('#rutaUltimo').textContent=last?`${last.date} ${last.time||''}`:'Sin registros';$('#rutaUltimaRuta').textContent=last?`${last.origin} → ${last.destination}`:'—';
+ $('#rutaHistorial').innerHTML=filtered.map(x=>`<tr><td>${e(x.date)} ${e(x.time||'')}</td><td>${e(x.origin)} → ${e(x.destination)}</td><td>${rutaMoney(x.price)}</td><td><button class="s" onclick="abrirWaze(decodeURIComponent('${encodeURIComponent(x.destination).replace(/'/g,'%27')}'))">Ver ruta</button></td></tr>`).join('')||'<tr><td colspan="4" class="mu">No hay servicios registrados en este mes.</td></tr>';
+}
+function solicitarRuta(){
+ openM(`<h3>Solicitar nuevo servicio</h3><form id="rutaSolicitud" onsubmit="enviarRuta(event)"><label>Fecha<input type="date" name="date" required></label><label>Hora<input type="time" name="time" required></label><label>Origen / recogida<input name="origin" required maxlength="250" placeholder="Dirección y municipio"></label><label>Destino / entrega<input name="destination" required maxlength="250" placeholder="Dirección y municipio"></label><div class="row"><button>Enviar solicitud</button><button class="s" type="button" onclick="closeM()">Cancelar</button></div></form><p class="mu">La administración revisará la solicitud y asignará el precio. No se realiza ningún cobro automático.</p>`);
+ const now=new Date();$('#rutaSolicitud').elements.date.value=`${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
+}
+async function enviarRuta(ev){ev.preventDefault();const f=ev.currentTarget,b=f.querySelector('button');b.disabled=true;
+ const req={passenger_id:me.id,date:f.elements.date.value,time:f.elements.time.value,origin:f.elements.origin.value.trim(),destination:f.elements.destination.value.trim(),status:'pendiente'};
+ const {error}=await sb.from('solicitudes_servicio').insert(req);b.disabled=false;
+ if(error)return alert('No se pudo enviar: '+error.message);closeM();alert('Solicitud enviada al administrador.');cargarClient();
+}
+async function chatCliente(){
+ openM(`<h3>Chat de servicios y soporte</h3><div id="rutaChatBox" style="height:280px;overflow:auto"></div><form id="rutaChatForm" onsubmit="enviarChatCliente(event)"><div class="row"><input name="msg" maxlength="2000" required placeholder="Escribe tu mensaje"><button>Enviar</button></div></form>`);
+ await cargarChatCliente();
+}
+async function cargarChatCliente(){const box=$('#rutaChatBox');if(!box)return;
+ const {data,error}=await sb.from('mensajes_chat').select('sender_role,message,created_at').eq('passenger_id',me.id).order('created_at',{ascending:true}).limit(150);
+ if(error){box.textContent=error.message;return}
+ box.innerHTML=(data||[]).map(x=>`<div class="ruta-chat-msg ${x.sender_role==='passenger'?'own':''}"><span>${e(x.message)}</span><small>${fdt(x.created_at)}</small></div>`).join('')||'<p class="mu">No hay mensajes. Escribe para iniciar una conversación.</p>';box.scrollTop=box.scrollHeight;
+}
+async function enviarChatCliente(ev){ev.preventDefault();const f=ev.currentTarget,msg=f.elements.msg.value.trim();if(!msg)return;
+ const {error}=await sb.from('mensajes_chat').insert({passenger_id:me.id,sender_role:'passenger',message:msg});if(error)return alert(error.message);f.reset();cargarChatCliente();}
+async function clientes(){
+ const [a,b]=await Promise.all([sb.from('solicitudes_servicio').select('*').order('created_at',{ascending:false}).limit(100),sb.from('ruta_clientes').select('id,full_name,email').order('created_at',{ascending:false})]);
+ if(a.error||b.error){$('#m').textContent='Error al cargar solicitudes de clientes: '+(a.error||b.error).message;return}
+ const users=b.data||[],requests=a.data||[];
+ $('#m').innerHTML=`<section class="card"><h2>Clientes y solicitudes</h2><div class="mu">${users.length} clientes registrados · ${requests.filter(r=>r.status==='pendiente').length} solicitudes pendientes</div></section><section class="card"><h3>Solicitudes de clientes</h3><div style="overflow-x:auto"><table><thead><tr><th>Cliente</th><th>Fecha</th><th>Origen → destino</th><th>Estado</th><th>Acciones</th></tr></thead><tbody>${requests.map(r=>{const u=users.find(x=>x.id===r.passenger_id);return `<tr><td>${e(u?.full_name||u?.email||'Cliente')}</td><td>${e(r.date)} ${e(r.time)}</td><td>${e(r.origin)} → ${e(r.destination)}</td><td>${e(r.status)}</td><td><button class="s" onclick="abrirWaze(decodeURIComponent('${encodeURIComponent(r.destination).replace(/'/g,'%27')}'))">Ver ruta</button>${r.status==='pendiente'?` <button onclick="aprobarRuta('${r.id}')">Aprobar</button> <button class="rd" onclick="rechazarRuta('${r.id}')">Rechazar</button>`:''}</td></tr>`}).join('')||'<tr><td colspan="5">No hay solicitudes.</td></tr>'}</tbody></table></div></section><section class="card"><h3>Mensajes de clientes</h3><select id="rutaAdminCliente" onchange="cargarChatAdminCliente()"><option value="">Elegir cliente</option>${users.map(x=>`<option value="${e(x.id)}">${e(x.full_name||x.email)}</option>`).join('')}</select><div id="rutaAdminChat" style="max-height:300px;overflow:auto;margin:12px 0"></div><form onsubmit="enviarChatAdminCliente(event)"><div class="row"><input name="msg" maxlength="2000" placeholder="Responder al cliente" required><button>Enviar</button></div></form></section>`;
+}
+async function aprobarRuta(id){const {data:r,error:re}=await sb.from('solicitudes_servicio').select('*').eq('id',id).single();if(re)return alert(re.message);
+ const priceText=prompt('Precio acordado para el cliente en COP (no cobro automático):');if(priceText===null)return;
+ const price=Number(priceText);if(!Number.isFinite(price)||price<0)return alert('Precio inválido.');
+ const {error}=await sb.from('servicios_transporte').insert({passenger_id:r.passenger_id,date:r.date,time:r.time,origin:r.origin,destination:r.destination,price,driver_type:'Conductor Interno'});
+ if(error)return alert('No se pudo crear el servicio: '+error.message);
+ const updated=await sb.from('solicitudes_servicio').update({status:'aprobado'}).eq('id',id);if(updated.error)return alert('Servicio creado, pero no se pudo actualizar la solicitud: '+updated.error.message);
+ clientes();
+}
+async function rechazarRuta(id){if(!confirm('¿Rechazar esta solicitud?'))return;const {error}=await sb.from('solicitudes_servicio').update({status:'rechazado'}).eq('id',id);if(error)return alert(error.message);clientes()}
+async function cargarChatAdminCliente(){const id=$('#rutaAdminCliente')?.value,box=$('#rutaAdminChat');if(!id||!box)return;
+ const {data,error}=await sb.from('mensajes_chat').select('sender_role,message,created_at').eq('passenger_id',id).order('created_at',{ascending:true}).limit(150);
+ if(error){box.textContent=error.message;return}
+ box.innerHTML=(data||[]).map(x=>`<div class="ruta-chat-msg ${x.sender_role==='admin'?'own':''}">${e(x.message)}<small>${fdt(x.created_at)}</small></div>`).join('')||'<p class="mu">No hay mensajes de este cliente.</p>';
+}
+async function enviarChatAdminCliente(ev){ev.preventDefault();const id=$('#rutaAdminCliente')?.value,f=ev.currentTarget,msg=f.elements.msg.value.trim();if(!id)return alert('Selecciona un cliente');if(!msg)return;
+ const {error}=await sb.from('mensajes_chat').insert({passenger_id:id,sender_role:'admin',message:msg});if(error)return alert(error.message);f.reset();cargarChatAdminCliente();}
+
 </script></body></html>

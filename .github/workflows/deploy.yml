@@ -1,4 +1,4 @@
-name: Construir y publicar CUPISSA DOMIS
+name: Publicar RUTA CUPISSA (HTML, CSS, JS estaticos)
 
 on:
   push:
@@ -15,31 +15,26 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  build:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Descargar el repositorio
-        uses: actions/checkout@v4
-      - name: Preparar Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
-      - name: Instalar dependencias
-        run: npm install
-      - name: Compilar aplicación web
-        run: npm run build
-      - name: Preparar artefacto de GitHub Pages
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: dist
-
   deploy:
+    runs-on: ubuntu-latest
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
-    runs-on: ubuntu-latest
-    needs: build
     steps:
-      - name: Publicar en GitHub Pages
+      - name: Obtener archivos
+        uses: actions/checkout@v4
+      - name: Preparar sitio web estatico (sin Vite)
+        run: |
+          mkdir -p dist
+          cp index.html dist/index.html
+          cp -r public/. dist/
+          cp -r clientes dist/clientes
+          cp -r js dist/js
+          cp CNAME dist/CNAME
+      - name: Publicar archivos
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+      - name: Activar GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
