@@ -36,7 +36,7 @@ button.s{background:#fff;color:var(--tx);border:1px solid var(--tx)}button.rd{ba
 .big{font-weight:600;letter-spacing:-.03em}.mu{color:var(--mu)}
 th{text-transform:uppercase;font-size:11px;letter-spacing:.06em;color:var(--mu);font-weight:500}
 a{color:var(--tx)}hr{border:0;border-top:1px solid var(--bd);margin:14px 0}
-.leaflet-tile-pane{filter:grayscale(1) contrast(1.05)}#map{border:1px solid var(--tx)}
+#map{border:1px solid var(--tx)}
 .pin{border-color:#000}.av{background:#000;color:#fff}
 
 .ac{position:relative}.ac ul{position:absolute;left:0;right:0;top:100%;z-index:40;margin:2px 0 0;padding:4px;list-style:none;background:#fff;border:1px solid var(--tx);border-radius:10px;box-shadow:0 8px 24px -8px #0004;max-height:260px;overflow:auto;display:none}
@@ -58,7 +58,7 @@ a{color:var(--tx)}hr{border:0;border-top:1px solid var(--bd);margin:14px 0}
 .delivery-step .finish-action{background:#136c53;color:#fff}
 .delivery-step .step-help{display:block;font-size:11px;color:#655b63;margin:7px 0 0}
 @media(max-width:530px){.delivery-flow{grid-template-columns:1fr}.delivery-step{padding:12px}.delivery-step button{min-height:42px}}
-</style><script>window.CUPISSA_NATIVE_READY=window.Capacitor?.isNativePlatform?.()?new Promise(resolve=>{window.addEventListener('cupissa-native-ready',resolve,{once:true});setTimeout(resolve,1500)}):Promise.resolve();</script><script type="module">if(window.Capacitor?.isNativePlatform?.())import("/src/native-bridge.js").catch(()=>window.dispatchEvent(new Event("cupissa-native-ready")));</script></head><body>
+</style></head><body>
 <div id="app"></div><div id="modal"><div></div></div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
@@ -91,8 +91,8 @@ async function cam(){try{if(window.CUPISSA_CAMERA&&window.Capacitor?.isNativePla
 function snap(){const v=$('#vid'),c=document.createElement('canvas'),k=Math.min(1,800/v.videoWidth);c.width=v.videoWidth*k;c.height=v.videoHeight*k;c.getContext('2d').drawImage(v,0,0,c.width,c.height);photo=c.toDataURL('image/jpeg',.6);stm.getTracks().forEach(t=>t.stop());v.style.display='none';$('#snap').style.display='none';$('#prev').src=photo;$('#prev').style.display='block';$('#cb').style.display='inline-block';$('#cb').textContent='📷 Repetir foto'}
 init();
 
-async function init(){try{await window.CUPISSA_NATIVE_READY;const opts=window.CUPISSA_FETCH?{global:{fetch:window.CUPISSA_FETCH}}:{};sb=supabase.createClient(cfg.u,cfg.k,opts);const{data:{session}}=await sb.auth.getSession();session?start(session.user):login()}catch(err){app.innerHTML='<div class="card narrow"><h2>No se pudo iniciar CUPISSA DOMIS</h2><p class="mu">Revisa tu conexión a internet e inténtalo de nuevo.</p></div>';console.error(err)}}
-function login(){if(new URLSearchParams(location.search).get('portal')==='cliente'){location.replace('clientes/');return}app.innerHTML=`<div class="card narrow" style="text-align:center"><img src="logo/logo.png" alt="Cupissa" style="max-height:70px;margin-bottom:8px" onerror="this.style.display='none'"><h2>RUTA CUPISSA</h2><p class="mu">Acceso administrativo y de conductores</p><input id="em" type="email" placeholder="Correo"><input id="pw" type="password" placeholder="Contraseña (mín. 6)"><div class="row"><button onclick="auth(1)">Entrar</button><button class="s" onclick="googleStaff()">Continuar con Google</button></div><hr><p class="mu">¿Necesitas solicitar un servicio?</p><a href="clientes/"><button class="s">Entrar al portal de clientes</button></a>${insB()}</div>`}
+async function init(){try{sb=supabase.createClient(cfg.u,cfg.k);const{data:{session}}=await sb.auth.getSession();session?start(session.user):login()}catch(err){app.innerHTML='<div class="card narrow"><h2>No se pudo iniciar CUPISSA DOMIS</h2><p class="mu">Revisa tu conexión a internet e inténtalo de nuevo.</p></div>';console.error(err)}}
+function login(){if(new URLSearchParams(location.search).get('portal')==='cliente'){location.replace('clientes/');return}app.innerHTML=`<div class="card narrow" style="text-align:center"><img src="logo/logo.png" alt="Cupissa" style="max-height:70px;margin-bottom:8px" onerror="this.style.display='none'"><h2>RUTA CUPISSA</h2><p class="mu">Acceso administrativo y de conductores</p><input id="em" type="email" placeholder="Correo"><input id="pw" type="password" placeholder="Contraseña (mín. 6)"><div class="row"><button onclick="auth(1)">Entrar</button></div><hr><p class="mu">¿Necesitas solicitar un servicio?</p><a href="clientes/"><button class="s">Entrar al portal de clientes</button></a>${insB()}</div>`}
 async function auth(inn){const em=$('#em').value,pw=$('#pw').value;const r=inn?await sb.auth.signInWithPassword({email:em,password:pw}):await sb.auth.signUp({email:em,password:pw});
  if(r.error)return alert(r.error.message);if(!r.data.session)return alert('Revisa tu correo para confirmar (o desactiva la confirmación en Supabase).');start(r.data.user)}
 async function out(){stop();clearInterval(poll);await sb.auth.signOut();location.reload()}
@@ -296,7 +296,6 @@ function abrirWaze(address,lat=null,lng=null){return RutaNavegacion.open({addres
 function mostrarWaze(address,lat=null,lng=null){return abrirWaze(address,lat,lng)}
 async function wazePedido(id){return RutaNavegacion.startOrder(id)}
 async function wazeRuta(id){const{data,error}=await sb.from('orders').select('address,dest_lat,dest_lng').eq('id',id).single();if(error||!data)return alert('No fue posible consultar el destino.');return RutaNavegacion.open(data)}
-async function googleStaff(){try{const{error}=await sb.auth.signInWithOAuth({provider:'google',options:{redirectTo:new URL('./',location.href).href}});if(error)throw error}catch(err){alert('No se pudo iniciar con Google: '+err.message+'\nActiva Google en Supabase Auth > Providers.')}}
 function registroCliente(){location.href='clientes/'}
 let rutaClientRows=[],rutaClientAbonos=[];
 const rutaMoney=v=>money(Number(v||0));
