@@ -62,9 +62,11 @@ a{color:var(--tx)}hr{border:0;border-top:1px solid var(--bd);margin:14px 0}
 <div id="app"></div><div id="modal"><div></div></div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<link href="https://unpkg.com/maplibre-gl@5.9.0/dist/maplibre-gl.css" rel="stylesheet">
+<script src="https://unpkg.com/maplibre-gl@5.9.0/dist/maplibre-gl.js"></script>
 
 <script defer src="js/mapa-compartido.js?v=10"></script><script defer src="js/ubicacion-compartida.js?v=9"></script><script defer src="js/direcciones.js?v=9"></script><script defer src="js/navegacion-config.js?v=10"></script>
-<script defer src="js/navegacion-ruta.js?v=11"></script>
+<script defer src="js/navegacion-ruta.js?v=12"></script><script src="js/notificaciones.js?v=1"></script>
 <script>
 const $=s=>document.querySelector(s),app=$('#app');
 const e=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -95,8 +97,8 @@ async function init(){try{sb=supabase.createClient(cfg.u,cfg.k);window.sb=sb;con
 function login(){if(new URLSearchParams(location.search).get('portal')==='cliente'){location.replace('clientes/');return}app.innerHTML=`<div class="card narrow" style="text-align:center"><img src="logo/logo.png" alt="Cupissa" style="max-height:70px;margin-bottom:8px" onerror="this.style.display='none'"><h2>RUTA CUPISSA</h2><p class="mu">Acceso administrativo y de conductores</p><input id="em" type="email" placeholder="Correo"><input id="pw" type="password" placeholder="Contraseña (mín. 6)"><div class="row"><button onclick="auth(1)">Entrar</button></div><hr><p class="mu">¿Necesitas solicitar un servicio?</p><a href="clientes/"><button class="s">Entrar al portal de clientes</button></a>${insB()}</div>`}
 async function auth(inn){const em=$('#em').value,pw=$('#pw').value;const r=inn?await sb.auth.signInWithPassword({email:em,password:pw}):await sb.auth.signUp({email:em,password:pw});
  if(r.error)return alert(r.error.message);if(!r.data.session)return alert('Revisa tu correo para confirmar (o desactiva la confirmación en Supabase).');start(r.data.user)}
-async function out(){stop();clearInterval(poll);await sb.auth.signOut();location.reload()}
-async function start(u){const{data:staff,error:se}=await sb.from('profiles').select('*').eq('id',u.id).maybeSingle();if(staff?.role==='admin'||staff?.role==='courier'){me=staff;if(me.active===false){await sb.auth.signOut();return alert('Esta cuenta fue desactivada')}return me.role==='admin'?admin():courier()}const{data:customer}=await sb.from('ruta_clientes').select('*').eq('id',u.id).maybeSingle();if(customer){me={...customer,role:'passenger',name:customer.full_name||u.email};location.replace('clientes/');return}await sb.auth.signOut();login();alert('Esta cuenta no tiene acceso al panel de personal. Los clientes ingresan desde el portal de clientes.')}
+async function out(){window.RutaNotificaciones?.stop();stop();clearInterval(poll);await sb.auth.signOut();location.reload()}
+async function start(u){const{data:staff,error:se}=await sb.from('profiles').select('*').eq('id',u.id).maybeSingle();if(staff?.role==='admin'||staff?.role==='courier'){me=staff;if(me.active===false){await sb.auth.signOut();return alert('Esta cuenta fue desactivada')}window.RutaNotificaciones?.start(sb,me);return me.role==='admin'?admin():courier()}const{data:customer}=await sb.from('ruta_clientes').select('*').eq('id',u.id).maybeSingle();if(customer){me={...customer,role:'passenger',name:customer.full_name||u.email};location.replace('clientes/');return}await sb.auth.signOut();login();alert('Esta cuenta no tiene acceso al panel de personal. Los clientes ingresan desde el portal de clientes.')}
 
 /* ---------- ADMIN ---------- */
 function admin(){app.innerHTML=`<header><span><img src="logo/logo.png" height="28" style="vertical-align:middle" onerror="this.style.display='none'"> <b>Cupissa Domis</b></span><nav>${[['pedidos','Servicios'],['equipo','Equipo y mapa'],['jornadas','Jornadas'],['mensajes','Mensajes'],['ahorro','Ahorro'],['clientes','Clientes y solicitudes']].map(t=>`<button class="s" onclick="tab('${t[0]}')">${t[1]}${t[0]=='mensajes'?'<b id="mb"></b>':''}</button>`).join('')}</nav><span>${insB()} <button class="s" onclick="out()">Salir</button></span></header><main id="m"></main>`;tab('pedidos');adminMsgs()}
