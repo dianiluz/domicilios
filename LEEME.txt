@@ -1,0 +1,19 @@
+RUTA CUPISSA · Versión visual y de direcciones v8
+===================================================
+1. Publica estos archivos directamente en GitHub Pages con HTTPS.
+2. Sin Google Login, Vite, npm ni compilación. Acceso por correo y contraseña de Supabase.
+3. Nuevo selector de municipio: Barranquilla, Soledad, Malambo, Puerto Colombia y Galapa.
+4. Barranquilla: intenta consultar direcciones de nomenclatura en el geoportal oficial distrital; NO se ha verificado su CORS ni la coincidencia real de campos contra direcciones concretas.
+5. Todos los municipios: búsqueda complementaria Photon (servicio externo gratuito comunitario), no garantiza casas ni disponibilidad.
+6. Dirección exacta: seleccionar entrada en el mapa y confirmar manualmente. El punto se guarda en localStorage DEL MISMO NAVEGADOR (no sincronizado con Supabase).
+7. Navegación: continúa usando motores externos comunitarios Valhalla/OSRM y mosaicos OSM; NO incluye tráfico en vivo, navegación offline ni GPS garantizado en segundo plano en web.
+8. Las ubicaciones GPS se almacenan en Supabase conforme a tablas y RLS existentes. NO se modificaron contraseñas ni datos de Supabase.
+9. Seguridad: configure políticas RLS apropiadas. Nunca publique una clave service_role.
+10. IMPORTANTE: antes de usar comercialmente las APIs públicas, revise límites y licencias. Para búsquedas en producción a escala será necesaria infraestructura o proveedor con condiciones adecuadas.
+11. Supabase: las tablas de origen se mantienen; no ejecutar cambios SQL para este rediseño.
+
+CONFIRMACIÓN REQUERIDA ANTES DE UNA VERSIÓN FINAL:
+- ¿La app final es únicamente para uso interno o también para clientes externos?
+- ¿Las direcciones confirmadas deben compartirse y guardarse en Supabase entre dispositivos?
+- ¿Cuántos servicios/búsquedas aproximados realizarán al día?
+- ¿Aceptas un pequeño servidor gratuito o quieres exclusivamente páginas estáticas, incluso si limita búsqueda exacta y navegación?
