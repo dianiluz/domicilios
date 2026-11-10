@@ -24,11 +24,11 @@ function fit(s){if(!s.map)return;const b=L.latLngBounds();if(s.destination)b.ext
 function setVoice(s){s.voice=!s.voice;const b=el('rn-voice');if(b)b.textContent=s.voice?'Silenciar voz':'Activar voz';if(!s.voice){try{speechSynthesis.cancel()}catch{}}else say(s,s.lastText||'Indicaciones activadas')}
 function drawUI(title){
  const shell=document.createElement('section');shell.id='rn-shell';shell.setAttribute('role','dialog');shell.setAttribute('aria-modal','true');shell.setAttribute('aria-label','Navegación RUTA CUPISSA');
- shell.innerHTML=`<div class="rn-top"><div class="rn-brand"><strong>RUTA CUPISSA</strong><span>Navegación en vivo</span></div><span id="rn-follow-status" class="rn-follow-status">GPS EN SEGUIMIENTO</span><button type="button" id="rn-close" aria-label="Cerrar navegación">✕ Cerrar</button></div>
+ shell.innerHTML=`<div class="rn-top"><div class="rn-brand"><strong>RUTA CUPISSA</strong><span>Modo conducción · Moto / carro</span></div><span id="rn-follow-status" class="rn-follow-status">GPS EN SEGUIMIENTO</span><button type="button" id="rn-close" aria-label="Cerrar navegación">✕ Cerrar</button></div>
  <div id="rn-map" role="application" aria-label="Mapa del trayecto"><div class="rn-gps-indicator" id="rn-gps-indicator">GPS: esperando ubicación</div><div class="rn-map-warning" id="rn-map-warning" hidden>El proveedor del mapa no respondió. La ruta y el GPS pueden seguir funcionando.</div></div>
  <div class="rn-panel"><div class="rn-destination"><span>DESTINO</span><strong>${escapeHTML(title)}</strong></div><div class="rn-maneuver"><div id="rn-arrow" aria-hidden="true">➜</div><div><div id="rn-next" aria-live="polite">Preparando mapa…</div><div id="rn-info">GPS y ruta por inicializar</div></div></div><div class="rn-progress"><div id="rn-progress-bar"></div></div><div class="rn-signal" id="rn-signal">La precisión del GPS puede variar según el dispositivo.</div><div id="rn-status" class="rn-status" aria-live="polite">Esperando ubicación…</div>
  <div class="rn-actions"><button type="button" id="rn-voice">Silenciar voz</button><button type="button" id="rn-repeat">Repetir</button><button type="button" id="rn-center">Seguimiento activo</button><button type="button" id="rn-recalc">Recalcular</button><button type="button" id="rn-point">Corregir destino</button></div>
- <small class="rn-caution">Ruta orientativa sin tráfico en vivo. Respeta las señales de tránsito. La voz y el GPS pueden detenerse si se bloquea el teléfono. No manipules la pantalla mientras conduces.</small></div>`;
+ <small class="rn-caution">Mapa con rumbo indicado por el vehículo, vista norte arriba. Ruta orientativa sin tráfico en vivo. Respeta las señales de tránsito. La voz y el GPS pueden detenerse si se bloquea el teléfono. No manipules la pantalla mientras conduces.</small></div>`;
  document.body.appendChild(shell);
  el('rn-close').onclick=close;
  const name=el('rn-follow-status');if(name)name.textContent='GPS EN SEGUIMIENTO';
@@ -36,11 +36,7 @@ function drawUI(title){
 function setupMap(s){if(!window.L)throw Error('No se pudo cargar Leaflet. Revisa la conexión a internet.');
  s.map=L.map('rn-map',{zoomControl:false,preferCanvas:true,scrollWheelZoom:true,zoomSnap:0.5,zoomAnimation:true}).setView([10.9639,-74.7964],12);
  L.control.zoom({position:'topright'}).addTo(s.map);
- const tiles=L.tileLayer(cfg().tiles||'https://tile.openstreetmap.org/{z}/{x}/{y}.png',{
-  attribution:'&copy; OpenStreetMap contributors',maxNativeZoom:19,maxZoom:20,updateWhenIdle:true,keepBuffer:1,crossOrigin:true
- }).addTo(s.map);
- let tileErrors=0;tiles.on('tileerror',()=>{if(++tileErrors>=3){const w=el('rn-map-warning');if(w)w.hidden=false;}});
- tiles.on('tileload',()=>{tileErrors=0;const w=el('rn-map-warning');if(w)w.hidden=true;});
+ window.RutaMapa.attach(s.map);
  s.target=L.marker([s.destination.lat,s.destination.lng],{title:'Destino'}).addTo(s.map).bindPopup('Destino: '+escapeHTML(s.title));
  if(!s.needsPick)s.map.setView([s.destination.lat,s.destination.lng],15);
  // Solo una interacción humana pausa el seguimiento; los movimientos de cámara
@@ -106,7 +102,7 @@ function pauseFollow(s){
 }
 function centerCamera(s,p,force=false){
  if(!s.map||!s.follow||!valid(p))return;
- const target=L.latLng(p.lat,p.lng),zoom=s.map.getZoom();
+ const zoom=s.map.getZoom();let target=L.latLng(p.lat,p.lng);if(s.hasBearing&&Number.isFinite(s.lastBearing)&&zoom>=16){const bearingRadians=rad(s.lastBearing),ahead=75;const offset=s.map.project(target,zoom).add(L.point(Math.sin(bearingRadians)*ahead,-Math.cos(bearingRadians)*ahead));target=s.map.unproject(offset,zoom);}
  const center=s.map.getCenter(),dist=s.map.distance(center,target);
  // Recobrar el zoom de navegación si el mapa aún estaba mostrando una zona amplia.
  if(force||!s.hasCentered||zoom<17){
@@ -132,7 +128,7 @@ function moveMarker(s,position,accuracy){
  const smooth=accuracy<=65&&gap<130;
  const start=performance.now(),duration=smooth?Math.min(1250,Math.max(480,gap*42)):0;
  const angle=Number.isFinite(s.heading)?s.heading:(gap>6&&accuracy<=65?bearing(from,position):s.lastBearing||0);
- s.lastBearing=angle;
+ s.lastBearing=angle;if(Number.isFinite(s.heading)||(gap>6&&accuracy<=65))s.hasBearing=true;
  const glyph=s.positionMarker.getElement()?.querySelector('.rn-driver-direction');
  if(glyph)glyph.style.setProperty('--rn-heading',angle+'deg');
  const animate=now=>{
@@ -192,18 +188,19 @@ function positionUpdate(s,p){if(active!==s)return;const coords=p.coords,pt=point
 async function geocodeDestination(address){
  const raw=String(address||'').trim();const m=raw.match(/^(-?\d{1,2}\.\d+)\s*,\s*(-?\d{1,3}\.\d+)$/);if(m)return point(m[1],m[2]);
  // Usa la búsqueda ya incluida por RUTA CUPISSA, sin crear nuevas claves.
- if(typeof window.geoSearch==='function'){const results=await window.geoSearch(raw);if(results?.[0])return point(results[0].la,results[0].ln)}
- if(typeof window.geo==='function'){const res=await window.geo(raw);if(Array.isArray(res)&&res.length===2)return point(res[0],res[1])}
- try{const u='https://photon.komoot.io/api/?limit=1&lat=10.9639&lon=-74.7964&q='+encodeURIComponent(raw+', Colombia');const response=await fetch(u);if(response.ok){const data=await response.json(),c=data.features?.[0]?.geometry?.coordinates;if(c?.length===2)return point(c[1],c[0])}}catch{}
+ if(typeof window.geoSearch==='function'){const results=await window.geoSearch(raw);if(results?.[0]?.exact)return point(results[0].la,results[0].ln)}
+
+
  return null;}
-async function open(order){
+async function open(order,options={}){
  close();const address=String(order?.address||'Destino del servicio');
  const source=(order?.dest_lat!=null&&order?.dest_lng!=null)?point(order.dest_lat,order.dest_lng):null;
  drawUI(address);
  const hasDestination=valid(source);
- const s=active={title:address,destination:hasDestination?source:point(10.9639,-74.7964),position:null,accuracy:999,voice:true,follow:true,hasCentered:false,programmaticMove:false,displayPosition:null,lastBearing:0,frame:null,heading:null,gps:null,route:null,poly:null,loading:false,pending:false,lastCalc:0,progress:0,spoken:new Set(),offCount:0,arrived:false,lastText:'',abort:null,map:null,picking:false,needsPick:!hasDestination};
+ const s=active={title:address,destination:hasDestination?source:point(10.9639,-74.7964),position:null,accuracy:999,voice:true,follow:true,hasCentered:false,programmaticMove:false,displayPosition:null,lastBearing:0,hasBearing:false,frame:null,heading:null,gps:null,route:null,poly:null,loading:false,pending:false,lastCalc:0,progress:0,spoken:new Set(),offCount:0,arrived:false,lastText:'',abort:null,map:null,picking:false,needsPick:!hasDestination};
  if(!voiceAvailable()){s.voice=false;el('rn-voice').disabled=true;el('rn-voice').textContent='Voz no disponible'}
  try{setupMap(s);updateFollowButton(s);requestAnimationFrame(()=>s.map?.invalidateSize())}catch(err){instruction(err.message);return}
+ if(options.admin){report(s,'Vista administrativa: mismo mapa que utiliza el domiciliario. Para ver su GPS, consulta Equipo y mapa.');instruction('Destino del servicio');if(hasDestination)s.map.setView([source.lat,source.lng],16);return;}
  if(!window.isSecureContext){instruction('Para activar el GPS utiliza HTTPS.');report(s,'Este sitio debe abrirse mediante HTTPS.');return}
  if(!navigator.geolocation){instruction('GPS no disponible en este navegador.');return}
  // Inicia GPS antes de la geocodificación: evita pantalla inmóvil mientras la búsqueda remota responde.
