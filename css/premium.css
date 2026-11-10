@@ -1,0 +1,25 @@
+/* RUTA CUPISSA | interfaz editorial responsive */
+:root{--bg:#f7f7f9;--card:#fff;--tx:#17151b;--mu:#76727b;--ac:#101015;--on:#fff;--bd:#e7e4e9;--rd:#b42336;--pink:#f4699a;--focus:#ed5089}
+body{background:radial-gradient(circle at 90% 0%,#fff0f7 0,transparent 40%),#f7f7f9;color:var(--tx)}
+header{min-height:68px;padding:12px clamp(16px,4vw,44px);background:#ffffffed;border-bottom:1px solid #ece8ec;box-shadow:0 2px 20px #24121b07;gap:14px}
+header b{letter-spacing:-.025em}header .av{border:2px solid #f5b3cd}main{max-width:1240px;padding:clamp(14px,2.7vw,30px);margin:auto}nav{gap:7px}
+nav button,header button{font-size:12px;white-space:normal}.card{border:1px solid #ede8ed;border-radius:20px;padding:clamp(16px,2.3vw,26px);box-shadow:0 5px 26px #20121a0a;margin-bottom:15px}
+.card h2,.card h3{font-weight:750;letter-spacing:-.04em}.big{font-size:clamp(24px,3vw,36px);font-weight:800;letter-spacing:-.05em}
+button{font-weight:690;border-radius:12px;min-height:38px;transition:background .16s,transform .16s,box-shadow .16s}
+button:hover{opacity:1;transform:translateY(-1px);box-shadow:0 3px 14px #12071020}button:focus-visible,a:focus-visible{outline:3px solid #f4699a;outline-offset:2px}
+button.s{background:#fff;color:#242027;border:1px solid #e8dfe5}button.s:hover{background:#fff4f8;border-color:#f6a8c4}button.rd{background:#fff5f5;color:#b32639;border-color:#f4dadd}
+input,select,textarea{border:1px solid #e0dae0;background:#fff;border-radius:12px;min-height:43px;font-size:14px}input:focus,select:focus,textarea:focus{outline:none;border-color:#f4699a;box-shadow:0 0 0 3px #f4699a35}
+.g{gap:12px;grid-template-columns:repeat(auto-fit,minmax(210px,1fr))}.row{gap:12px}.chip{background:#fff0f6;border-color:#f4c9db;color:#a3215b;font-weight:700}.mu{color:#756d77}
+#map{height:min(58vh,560px);border-radius:18px;border:1px solid #eadfe6;box-shadow:0 7px 24px #00000010}
+#modal{background:#140911b8;backdrop-filter:blur(5px)}#modal>div{max-width:min(96vw,680px);border:1px solid #f0dfeb;border-radius:20px;padding:clamp(14px,2vw,24px);box-shadow:0 20px 70px #0005}
+.ac ul{border:1px solid #f4c6d9;border-radius:13px;box-shadow:0 12px 40px #00000018}.ac li{padding:12px 14px}.ac li:hover,.ac li.on{background:#fff0f7}.ac li small{margin-top:4px}
+.ruta-address-panel{grid-column:1/-1;border:1px solid #f1d6e3;padding:14px;border-radius:17px;background:linear-gradient(135deg,#fffbfd,#fff)}
+.ruta-address-panel h4{font-size:15px;margin:0 0 7px;letter-spacing:-.02em}.ruta-address-meta{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}
+.ruta-address-panel .address-controls{display:grid;grid-template-columns:minmax(170px,240px) 1fr;gap:10px;align-items:center}
+.ruta-address-panel .ac{min-width:0}.ruta-address-panel #adr{font-size:16px;min-height:50px}.ruta-address-panel .place-choices{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0}
+.place-choices button{font-size:12px;min-height:32px;padding:5px 11px;border-radius:20px}.place-choices button.active{color:#fff;background:#a1215b;border:1px solid #a1215b}
+.address-confidence{padding:9px 11px;background:#fff5f9;border-radius:10px;margin-top:9px;line-height:1.45;font-size:12px;color:#674b59}.address-confidence[data-state='ok']{background:#eaf8f1;color:#146246}.address-confidence[data-state='warn']{background:#fff3e6;color:#854916}
+#choose-map{border:1px solid #eedde8;overflow:hidden}.ruta-checklist{margin:0;padding:0;list-style:none}.ruta-checklist li{padding:8px 0;border-bottom:1px solid #eee}
+.rn-shell{font-family:inherit!important}.rn-shell button{border-radius:12px!important}
+@media(max-width:690px){header{padding:10px 12px}header nav{overflow:auto;flex-wrap:nowrap;max-width:100%;padding:4px 0}header nav button{flex-shrink:0}.g{grid-template-columns:1fr}.ruta-address-panel .address-controls{grid-template-columns:1fr}.card{padding:15px;border-radius:16px}main{padding:12px}.row>select{max-width:100%}.ruta-address-panel{padding:12px}.ruta-address-panel #adr{font-size:16px}#map{height:54vh}#modal>div{max-height:94dvh}table{display:block;overflow-x:auto}input,select,textarea{min-width:0}}
+@media(prefers-reduced-motion:reduce){button{transition:none}}
