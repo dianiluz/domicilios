@@ -23,3 +23,33 @@ input,select,textarea{border:1px solid #e0dae0;background:#fff;border-radius:12p
 .rn-shell{font-family:inherit!important}.rn-shell button{border-radius:12px!important}
 @media(max-width:690px){header{padding:10px 12px}header nav{overflow:auto;flex-wrap:nowrap;max-width:100%;padding:4px 0}header nav button{flex-shrink:0}.g{grid-template-columns:1fr}.ruta-address-panel .address-controls{grid-template-columns:1fr}.card{padding:15px;border-radius:16px}main{padding:12px}.row>select{max-width:100%}.ruta-address-panel{padding:12px}.ruta-address-panel #adr{font-size:16px}#map{height:54vh}#modal>div{max-height:94dvh}table{display:block;overflow-x:auto}input,select,textarea{min-width:0}}
 @media(prefers-reduced-motion:reduce){button{transition:none}}
+/* V9: unificación visual de administración y navegación */
+:root{--pink:#f4699a;--pink-strong:#dd3476;--ink:#17141a;--paper:#fff;--soft:#fff6fa}
+body{background:linear-gradient(160deg,#fff9fc 0,#f7f8fa 36%,#f5f4f7 100%);min-height:100vh}
+header{z-index:100;box-shadow:0 2px 20px rgba(29,19,27,.08);border-bottom:1px solid #eadbe3}
+header nav button.s{border:1px solid #f0e3e9;background:#fff;font-weight:750}
+header nav button.s:hover{background:#ffeff5;color:#a31854}
+main{width:100%;max-width:1360px}
+.card{box-shadow:0 6px 22px rgba(42,19,31,.045);border-color:#eae5e9}
+button:not(.s):not(.rd){background:#1e1720;color:white}
+button:not(.s):not(.rd):hover{background:#4b2239}
+.ruta-address-panel{border:1px solid #eac2d4;background:linear-gradient(110deg,#fff,#fff7fa)}
+.ruta-address-panel h4{font-weight:800;color:#2c1725}
+#map{height:min(65vh,670px);min-height:360px;border:2px solid #fff;box-shadow:0 12px 38px #1d141c22;background:#e9efea}
+#choose-map{height:min(55vh,430px)!important;min-height:280px}
+#map .leaflet-control-container .leaflet-bar,#choose-map .leaflet-control-container .leaflet-bar{border:1px solid #f0d4e0;box-shadow:0 5px 24px #271c2533}
+#map .leaflet-control-zoom a,#choose-map .leaflet-control-zoom a{color:#a82762}
+#seen{background:#fff;border:1px solid #f1e5eb;border-radius:12px;padding:10px 14px;line-height:1.7}
+#rn-shell{background:#f8f6f8!important}
+#rn-shell .rn-top{background:linear-gradient(110deg,#191019,#31152a)!important;border-bottom-color:#f4699a!important}
+#rn-shell .rn-top button{background:#492b3f!important}
+#rn-shell .rn-actions button{background:#231a26!important}
+#rn-shell .rn-actions #rn-center{background:#a82260!important}
+#rn-shell .rn-panel{border-top-color:#f4699a!important}
+#rn-map{background:#e3e9e5!important}
+#rn-map .leaflet-control-attribution{font-size:10px}
+#rn-map .rn-gps-indicator{border:1px solid #f0d9e3}
+@media(max-width:690px){main{padding:11px}header{gap:6px}header nav{order:3;width:100%;overflow-x:auto;padding-bottom:6px}header nav button{min-width:max-content}#map{min-height:330px;height:60dvh}.card{border-radius:17px}#rn-shell .rn-panel{max-height:47dvh!important}#rn-shell .rn-actions{display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px!important}#rn-shell .rn-actions button{min-width:0;font-size:11px!important;padding:9px 5px!important;line-height:1.2}#rn-shell .rn-actions #rn-point{grid-column:span 2}}
+
+/* Mensaje visible solo cuando el mapa base falla */
+.cupissa-map-error{position:absolute;z-index:850;left:50%;bottom:32px;transform:translateX(-50%);max-width:min(90%,390px);padding:10px 14px;background:#fff;color:#7b2149;border:1px solid #efccdc;border-radius:12px;box-shadow:0 5px 18px #0002;font:600 12px/1.4 system-ui,sans-serif;text-align:center;pointer-events:none}
