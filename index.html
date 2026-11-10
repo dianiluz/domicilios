@@ -58,13 +58,13 @@ a{color:var(--tx)}hr{border:0;border-top:1px solid var(--bd);margin:14px 0}
 .delivery-step .finish-action{background:#136c53;color:#fff}
 .delivery-step .step-help{display:block;font-size:11px;color:#655b63;margin:7px 0 0}
 @media(max-width:530px){.delivery-flow{grid-template-columns:1fr}.delivery-step{padding:12px}.delivery-step button{min-height:42px}}
-</style></head><body>
+</style><link rel="stylesheet" href="css/premium.css?v=8"></head><body>
 <div id="app"></div><div id="modal"><div></div></div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 
-<script defer src="js/navegacion-config.js?v=7"></script>
-<script defer src="js/navegacion-ruta.js?v=7"></script>
+<script defer src="js/direcciones.js?v=8"></script><script defer src="js/navegacion-config.js?v=8"></script>
+<script defer src="js/navegacion-ruta.js?v=8"></script>
 <script>
 const $=s=>document.querySelector(s),app=$('#app');
 const e=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -109,7 +109,7 @@ async function pedidos(){
  $('#m').innerHTML=`<section class="card"><div class="row"><h3>Nuevo servicio</h3><button class="rd" onclick="delall()">Borrar todos</button></div><form id="f"><div class="g">
  <select name="type" onchange="tg()">${Object.entries(TYPES).map(x=>`<option value="${x[0]}">${x[1]}</option>`).join('')}</select>
  <input name="name" placeholder="Nombre del cliente"><input name="phone" placeholder="Teléfono" inputmode="tel">
- <div class="ac"><input name="address" id="adr" placeholder="🔍 Buscar dirección o lugar (ej: Calle 72 # 46-30 o Éxito Buenavista)" autocomplete="off" required><input type="hidden" name="lat"><input type="hidden" name="lng"><ul id="adl"></ul><div id="ads" class="mu"></div><button type="button" class="s" onclick="pickExactDestination()" style="width:100%;margin-top:8px;border-radius:10px">📍 Ubicar dirección exacta en el mapa</button><small class="mu">Si el buscador no reconoce el número de casa, escribe la dirección completa y coloca el marcador donde corresponde.</small></div>
+ <div class="ruta-address-panel"><h4>Destino y dirección de entrega</h4><div class="address-controls"><label for="municipio" class="mu">Municipio<select id="municipio" name="municipio" aria-label="Municipio de destino"><option value="Barranquilla">Barranquilla</option><option value="Soledad">Soledad</option><option value="Malambo">Malambo</option><option value="Puerto Colombia">Puerto Colombia</option><option value="Galapa">Galapa</option></select></label><div class="ac"><input name="address" id="adr" placeholder="🔍 Buscar dirección o lugar (ej: Calle 72 # 46-30 o Éxito Buenavista)" autocomplete="off" required><input type="hidden" name="lat"><input type="hidden" name="lng"><ul id="adl"></ul><div id="ads" class="address-confidence" data-state="warn">Busca por calle/carrera y número. Confirma siempre la ubicación antes de enviar.</div></div></div><div class="ruta-address-meta"><button type="button" class="s" onclick="pickExactDestination()">Elegir entrada exacta en el mapa</button><button type="button" class="s" onclick="showSavedAddresses()">Mis direcciones guardadas</button></div><small class="mu">Ejemplo: Calle 72 # 46-30. Para edificios, barrios y conjuntos agrega una referencia.</small></div>
  <input name="total" type="number" placeholder="Total a cobrar" inputmode="numeric"><input name="cost" type="number" placeholder="🔒 Precio oculto (lo que pagarías)" inputmode="numeric">
  <select name="courier">${copts()}</select><label class="mu" style="display:block">📅 Fecha y hora del servicio<input type="datetime-local" name="when" required value="${new Date(Date.now()-new Date().getTimezoneOffset()*6e4).toISOString().slice(0,16)}"></label></div><textarea name="desc" placeholder="Detalle del pedido / mandado"></textarea><button>Crear servicio</button></form></section>
  ${os.map(o=>`<div class="card"><div class="row"><b>${TYPES[o.type]||o.type} · ${e(o.client_name)}</b><span class="chip">${ST[o.status]}</span></div>
@@ -117,8 +117,8 @@ async function pedidos(){
  <div class="row"><b>${money(o.total)}</b><span class="mu">📅 ${fdt(o.created_at)}${o.delivered_at?' · ✔ Entregado '+fdt(o.delivered_at):''}</span></div>
  <div class="row"><select style="width:auto" onchange="assign('${o.id}',this.value)">${copts(o.courier_id)}</select>${o.courier_id?`<button class="s" onclick="chat('${o.courier_id}','${o.id}')">💬 Chat</button>`:''}<button class="rd" onclick="delo('${o.id}')">🗑 Eliminar</button>${o.status=='entregado'?`<button class="s" onclick="evid('${o.id}')">Ver evidencia</button>`:`<button class="s" onclick="evid('${o.id}')">Ver comprobante</button>`}</div></div>`).join('')||'<p class="mu">Sin servicios aún.</p>'}`;
  tg();addrSearch();$('#f').onsubmit=async ev=>{ev.preventDefault();const d=Object.fromEntries(new FormData(ev.target));
-  let g=d.lat&&d.lng?[+d.lat,+d.lng]:null;if(d.address&&!g&&!confirm('No has confirmado la ubicación en el mapa. ¿Crear servicio sin GPS de destino? Para una ruta confiable usa «Ubicar dirección exacta en el mapa».'))return;const{data:o,error}=await sb.from('orders').insert({type:d.type,created_at:d.when?new Date(d.when).toISOString():new Date().toISOString(),client_name:d.name||'',client_phone:d.phone||'',address:d.address||'',dest_lat:g?g[0]:null,dest_lng:g?g[1]:null,description:d.desc,total:+d.total||0,courier_id:d.courier||null,status:d.courier?'asignado':'pendiente'}).select('id').single();
-  if(error)return alert(error.message);if(d.cost)await sb.from('order_costs').insert({order_id:o.id,price:+d.cost});tab('pedidos')}}
+  let g=d.lat&&d.lng?[+d.lat,+d.lng]:null;if(d.address&&!g&&!confirm('No has confirmado la ubicación en el mapa. ¿Crear servicio sin GPS de destino? Para una ruta confiable usa «Ubicar dirección exacta en el mapa».'))return;const{data:o,error}=await sb.from('orders').insert({type:d.type,created_at:d.when?new Date(d.when).toISOString():new Date().toISOString(),client_name:d.name||'',client_phone:d.phone||'',address:(d.address?(d.address+', '+(d.municipio||'Barranquilla')+', Atlántico'):'') ,dest_lat:g?g[0]:null,dest_lng:g?g[1]:null,description:d.desc,total:+d.total||0,courier_id:d.courier||null,status:d.courier?'asignado':'pendiente'}).select('id').single();
+  if(error)return alert(error.message);if(g)window.RutaDirecciones?.saveConfirmed(d.address,d.municipio,g[0],g[1]);if(d.cost)await sb.from('order_costs').insert({order_id:o.id,price:+d.cost});tab('pedidos')}}
 async function assign(id,c){await sb.from('orders').update({courier_id:c||null,status:c?'asignado':'pendiente'}).eq('id',id);tab('pedidos')}
 async function evid(id){const{data}=await sb.from('orders').select('photo,signature,transfer_photo').eq('id',id).single();
  openM(`<h3>Evidencia</h3>${data.transfer_photo?`<p class="mu">Comprobante de transferencia</p><img src="${data.transfer_photo}">`:'<p class="mu">Sin comprobante</p>'}${data.photo?`<img src="${data.photo}">`:'<p class="mu">Sin foto</p>'}${data.signature?`<p class="mu">Firma del cliente</p><div style="background:#fff;border-radius:8px"><img src="${data.signature}"></div>`:'<p class="mu">Sin firma</p>'}<button onclick="closeM()">Cerrar</button>`)}
@@ -182,55 +182,63 @@ async function track(){if(wid!==null)return;const set=(la,ln,ac)=>{lp={lat:la,ln
 function stop(){clearInterval(hb);if(bgw&&BGP())BGP().removeWatcher({id:bgw});bgw=null;if(typeof wid=='number')navigator.geolocation.clearWatch(wid);wid=null;wl?.release()}
 document.addEventListener('visibilitychange',()=>{if(shift&&document.visibilityState=='visible'){navigator.wakeLock?.request('screen').then(w=>wl=w).catch(()=>{});send()}});
 function tg(){const f=$('#f'),t=f.elements.type.value,P={domicilio:['Nombre del cliente','Dirección de entrega','Detalle del pedido'],mandado:['Nombre de quien pide el mandado','Dirección o lugar del mandado','Mandado que se hace (qué hay que comprar o hacer)'],traslado:['Nombre de la persona que se transporta','Dirección o lugar de destino','Detalle del traslado (punto de recogida, observaciones)']}[t];f.elements['name'].placeholder=P[0];f.elements.address.placeholder='🔍 '+P[1]+' (busca dirección o lugar)';f.elements.desc.placeholder=P[2];f.elements['name'].required=t!='domicilio';f.elements.desc.required=t=='mandado'}
-const BBOX=[-74.95,10.85,-74.65,11.10]; // O,S,E,N: Barranquilla, Soledad, Malambo, Puerto Colombia
-function normAddr(a){return String(a).replace(/\b(cra|cr|kra|krr|carr)\.?\s/gi,'Carrera ').replace(/\b(cll|cl|cal)\.?\s/gi,'Calle ').replace(/\bdg\.?\s/gi,'Diagonal ').replace(/\b(tv|trv|transv)\.?\s/gi,'Transversal ').replace(/\bav\.?\s/gi,'Avenida ').replace(/\s+no\.?\s+(?=\d)/gi,' ').replace(/\s*(#|nº|n°)\s*/gi,' ').replace(/\s+/g,' ').trim()}
+/* Buscador local de Atlántico. Prioridad: direcciones confirmadas -> catastro oficial
+ * de Barranquilla -> Photon (referencia aproximada). Nunca se afirma exactitud no verificada.
+ * La capa catastral externa puede cambiar o impedir CORS; hay selección manual.
+ */
+const BBOX=[-75.11,10.76,-74.62,11.13];
+function normAddr(a){return String(a||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/\b(cra|cr|kra|krr|carr)\.?\s*/gi,'Carrera ').replace(/\b(cll|cl|cal)\.?\s*/gi,'Calle ').replace(/\bdg\.?\s*/gi,'Diagonal ').replace(/\b(tv|trv|transv)\.?\s*/gi,'Transversal ').replace(/\bav\.?\s*/gi,'Avenida ').replace(/\s+no\.?\s+(?=\d)/gi,' # ').replace(/\s+/g,' ').trim()}
 const geoMemory=new Map();
-function queryStreetVariants(input){
- const raw=String(input||'').trim(),q=normAddr(raw);
- const out=[raw,q];
- // Se conserva el numero completo de nomenclatura: 72 # 46-30 y no solo la carrera.
- if(!/barranquilla|soledad|malambo|galapa|puerto colombia/i.test(q))out.push(q+', Barranquilla, Atlántico, Colombia');
- return [...new Set(out.filter(Boolean))];
+function municipioActivo(){return document.getElementById('municipio')?.value||'Barranquilla'}
+function geoKey(a){return normAddr(a).toLocaleLowerCase('es').replace(/[^a-z0-9]/g,'')}
+function inZone(x){return x&&Number.isFinite(x.la)&&Number.isFinite(x.ln)&&x.la>10.65&&x.la<11.2&&x.ln>-75.25&&x.ln<-74.5}
+function parseNomenclature(input){let q=normAddr(input),m=q.match(/^(Calle|Carrera|Diagonal|Transversal|Avenida)\s+(\d+[A-Z]?)\s*(?:#|N[oº°.]*)?\s*(\d+[A-Z]?)\s*[-–]\s*(\d+[A-Z]?)/i);return m?{road:m[1],primary:m[2],cross:m[3],number:m[4]}:null}
+const OFFICIAL='https://geopendata.barranquilla.gov.co/arcgis/rest/services/Gerencia/Barranquilla/FeatureServer/0/query';
+async function officialBarranquilla(q){const m=parseNomenclature(q);if(!m)return[];
+ const sqlSafe=s=>String(s).replace(/'/g,"''");
+ // Consultar por las tres partes; no reemplazar la dirección por un centroide de calle.
+ const where=`valor_via_principal='${sqlSafe(m.primary)}' AND valor_via_generadora='${sqlSafe(m.cross)}' AND numero_predio='${sqlSafe(m.number)}'`;
+ const params=new URLSearchParams({where,outFields:'clase_via_principal,valor_via_principal,valor_via_generadora,numero_predio,letra_via_principal,letra_via_generadora,complemento,nombre_predio',outSR:'4326',returnGeometry:'true',f:'geojson',resultRecordCount:'15'});
+ const r=await fetch(OFFICIAL+'?'+params,{signal:AbortSignal.timeout(7500)});if(!r.ok)throw Error('Catastro no disponible');const data=await r.json();if(data.error)throw Error(data.error.message||'Catastro no disponible');
+ return (data.features||[]).filter(x=>x.geometry?.type==='Point').map(x=>{let a=x.properties||{};return {t:`${m.road} ${m.primary} # ${m.cross}-${m.number}`,s:[a.nombre_predio,a.complemento,'Barranquilla · Catastro distrital'].filter(Boolean).join(' · '),la:+x.geometry.coordinates[1],ln:+x.geometry.coordinates[0],exact:true,source:'catastro'}}).filter(inZone);
 }
-async function geoN(q,n=5){const u='https://nominatim.openstreetmap.org/search?format=jsonv2&addressdetails=1&limit='+n+'&countrycodes=co&q='+encodeURIComponent(q);
- const r=await fetch(u,{signal:AbortSignal.timeout(5500),headers:{'Accept-Language':'es'}});if(!r.ok)throw Error('Búsqueda no disponible');
- return (await r.json()).map(x=>{const a=x.address||{},rd=[a.road,a.house_number].filter(Boolean).join(' '),title=rd||x.name||x.display_name.split(',')[0];return{t:title,s:[a.neighbourhood||a.suburb,a.city||a.town||a.village,x.display_name].filter(Boolean).join(', '),la:+x.lat,ln:+x.lon,exact:!!a.house_number}})}
-async function geoP(q,n=7){const u='https://photon.komoot.io/api/?limit='+n+'&lat=10.9639&lon=-74.7964&q='+encodeURIComponent(q);
- const r=await fetch(u,{signal:AbortSignal.timeout(5000)});if(!r.ok)throw Error('Búsqueda no disponible');return(await r.json()).features?.filter(f=>(f.properties.countrycode||'CO')==='CO').map(f=>{const z=f.properties,street=[z.street,z.housenumber].filter(Boolean).join(' ');return{t:street||z.name||z.city||'Ubicación',s:[z.name&&z.name!==street?z.name:'',z.district||z.locality,z.city].filter(Boolean).join(', '),la:f.geometry.coordinates[1],ln:f.geometry.coordinates[0],exact:!!z.housenumber}})||[]}
-async function geoSearch(input){const q=String(input||'').trim();if(q.length<4)return[];const key=q.toLowerCase();if(geoMemory.has(key))return geoMemory.get(key);
- const variants=queryStreetVariants(q);let data=[];
- // Primer intento con la dirección íntegra; respaldo con nomenclatura normalizada.
- try{data=await geoP(variants[0])}catch{}
- if(!data.length&&variants[1]!==variants[0])try{data=await geoP(variants[1])}catch{}
- // Solo un intento adicional: evitar saturar servidores comunitarios.
- if(!data.length)try{data=await geoN(variants.at(-1))}catch{}
- const dedup=new Set();const result=data.filter(x=>{if(!Number.isFinite(x.la)||!Number.isFinite(x.ln))return false;const k=x.la.toFixed(5)+','+x.ln.toFixed(5);if(dedup.has(k))return false;dedup.add(k);return true}).slice(0,7);
- if(geoMemory.size>100)geoMemory.clear();geoMemory.set(key,result);return result;
+async function geoP(q,n=7){const url='https://photon.komoot.io/api/?limit='+n+'&lat=10.9639&lon=-74.7964&q='+encodeURIComponent(q);
+ const r=await fetch(url,{signal:AbortSignal.timeout(6000)});if(!r.ok)throw Error('Búsqueda no disponible');const js=await r.json();return(js.features||[]).filter(f=>(f.properties.countrycode||'CO').toUpperCase()==='CO').map(f=>{const z=f.properties,street=[z.street,z.housenumber].filter(Boolean).join(' ');return{t:street||z.name||z.city||'Ubicación',s:[z.name!==street?z.name:'',z.district||z.locality,z.city].filter(Boolean).join(', '),la:+f.geometry.coordinates[1],ln:+f.geometry.coordinates[0],exact:false,source:'referencia'}}).filter(inZone)}
+async function geoSearch(input){const q=String(input||'').trim(),city=municipioActivo();if(q.length<3)return[];const key=geoKey(q+city);if(geoMemory.has(key))return geoMemory.get(key);
+ const stored=window.RutaDirecciones?.find(q,city)||[];let candidates=[...stored];
+ if(city==='Barranquilla'&&parseNomenclature(q))try{candidates.push(...await officialBarranquilla(q))}catch(err){console.info('Catastro distrital:',err.message)}
+ // Búsqueda de lugares/calles; nunca interpreta resultados de Photon como puerta exacta.
+ if(candidates.length<5)try{candidates.push(...await geoP(q+', '+city+', Atlántico, Colombia'))}catch(err){console.info('Búsqueda de apoyo:',err.message)}
+ const coords=new Set();const result=candidates.filter(x=>{if(!inZone(x))return false;let k=x.la.toFixed(5)+','+x.ln.toFixed(5);if(coords.has(k))return false;coords.add(k);return true}).slice(0,10);
+ if(geoMemory.size>75)geoMemory.clear();geoMemory.set(key,result);return result;
 }
+function showSavedAddresses(){const city=municipioActivo();const list=window.RutaDirecciones?.all().filter(x=>x.city===city)||[];
+ openM(`<h3>Direcciones confirmadas · ${e(city)}</h3>${list.length?list.map((x,i)=>`<button class="s" style="display:block;width:100%;text-align:left;margin:8px 0" onclick="useSavedAddress('${city}',${i})">${e(x.t)}<small style="display:block">Ubicación guardada manualmente</small></button>`).join(''):'<p class="mu">Todavía no hay direcciones confirmadas en este navegador. Selecciona una dirección en el mapa y quedará disponible para futuras entregas.</p>'}`)}
+function useSavedAddress(city,i){const x=window.RutaDirecciones?.all().filter(x=>x.city===city)[i];if(!x)return;$('#adr').value=x.t;$('#f').elements.lat.value=x.la;$('#f').elements.lng.value=x.ln;const box=$('#ads');box.dataset.state='ok';box.textContent='Punto confirmado anteriormente. Revisa que siga siendo la entrada correcta.';closeM()}
 async function geo(a){try{const r=await geoSearch(a);return r[0]?[r[0].la,r[0].ln]:null}catch{return null}}
 function addrSearch(){const f=$('#f'),i=$('#adr'),l=$('#adl'),st=$('#ads');if(!i)return;let tm,seq=0,items=[],cur=-1;
  const hide=()=>{l.style.display='none';cur=-1},clear=()=>{f.elements.lat.value='';f.elements.lng.value=''},
- pick=k=>{const x=items[k];if(!x)return;i.value=x.t+(x.s?', '+x.s:'');f.elements.lat.value=x.la;f.elements.lng.value=x.ln;st.className='ok';st.textContent=x.exact?'📍 Número de dirección encontrado; verifica el punto.':'📍 Ubicación aproximada; verifica o corrige el punto en el mapa.';hide()},
+ pick=k=>{const x=items[k];if(!x)return;i.value=x.t;f.elements.lat.value=x.la;f.elements.lng.value=x.ln;st.dataset.state=x.source==='guardada'?'ok':x.exact?'warn':'warn';st.textContent=x.source==='guardada'?'Dirección guardada: ubicación confirmada anteriormente.':x.exact?'Coincidencia del catastro: verifica la entrada sobre el mapa.':'Referencia aproximada: confirma la ubicación en el mapa.';hide()},
  hl=()=>[...l.children].forEach((c,k)=>c.classList.toggle('on',k==cur)),
- run=async()=>{const q=i.value.trim(),id=++seq;if(q.length<4){hide();st.textContent='';return}st.className='mu';st.textContent='Buscando…';
+ run=async()=>{const q=i.value.trim(),id=++seq;if(q.length<4){hide();st.textContent='';return}st.dataset.state='warn';st.textContent='Buscando en '+municipioActivo()+'…';
   let r=[];try{r=await geoSearch(q)}catch{}if(id!=seq)return;items=r;
-  if(!r.length){hide();st.className='no';st.textContent='Sin resultados. Prueba con otro formato (ej: Carrera 46 72-30) o agrega el barrio.';return}
-  st.className='mu';st.textContent='Elige una opción para confirmar la ubicación';
-  l.innerHTML=r.map((x,k)=>`<li data-k="${k}">${e(x.t)}${x.s?`<small>${e(x.s)}</small>`:''}</li>`).join('');l.style.display='block'};
- i.addEventListener('input',()=>{clear();st.textContent='';clearTimeout(tm);tm=setTimeout(run,850)});
+  if(!r.length){hide();st.dataset.state='warn';st.textContent='Sin coincidencias fiables. Introduce otra referencia o marca el destino sobre el mapa.';return}
+  st.dataset.state='warn';st.textContent='Elige una coincidencia y verifica el marcador. La búsqueda no garantiza una dirección exacta.';
+  l.innerHTML=r.map((x,k)=>`<li data-k="${k}">${e(x.t)}${x.s?`<small>${e(x.s)}</small>`:''}<small>${x.source==='catastro'?'Catastro Barranquilla':x.source==='guardada'?'Guardada por CUPISSA':'Referencia cartográfica aproximada'}</small></li>`).join('');l.style.display='block'};
+ i.addEventListener('input',()=>{clear();st.textContent='';clearTimeout(tm);tm=setTimeout(run,600)});document.getElementById('municipio')?.addEventListener('change',()=>{clear();hide();st.dataset.state='warn';st.textContent='Municipio cambiado. Busca de nuevo la dirección.';if(i.value.trim().length>=4)run()});
  i.addEventListener('keydown',ev=>{const n=l.children.length;if(ev.key=='ArrowDown'&&n){ev.preventDefault();cur=(cur+1)%n;hl()}else if(ev.key=='ArrowUp'&&n){ev.preventDefault();cur=(cur-1+n)%n;hl()}else if(ev.key=='Enter'){if(l.style.display=='block'){ev.preventDefault();pick(cur>=0?cur:0)}else if(!f.elements.lat.value){ev.preventDefault();clearTimeout(tm);run()}}else if(ev.key=='Escape')hide()});
  l.addEventListener('mousedown',ev=>{const li=ev.target.closest('li');if(li){ev.preventDefault();pick(+li.dataset.k)}});
  i.addEventListener('blur',()=>setTimeout(hide,150))}
 function pickExactDestination(){
  const form=$('#f'),field=$('#adr');if(!form||!field)return;
- const start=(Number(form.elements.lat.value)&&Number(form.elements.lng.value))?[Number(form.elements.lat.value),Number(form.elements.lng.value)]:[10.9639,-74.7964];
+ const CENTERS={'Barranquilla':[10.9639,-74.7964],'Soledad':[10.9184,-74.7646],'Malambo':[10.8595,-74.7744],'Puerto Colombia':[11.016,-74.886],'Galapa':[10.896,-74.887]};const start=(Number(form.elements.lat.value)&&Number(form.elements.lng.value))?[Number(form.elements.lat.value),Number(form.elements.lng.value)]:(CENTERS[municipioActivo()]||CENTERS.Barranquilla);
  openM(`<h3>Indicar punto exacto de entrega</h3><p class="mu">Busca la calle en el mapa y toca el punto exacto. Puedes hacer zoom para escoger la puerta o entrada.</p><div id="choose-map" style="height:min(55vh,420px);border-radius:12px"></div><p id="choose-msg" class="mu">Toca un lugar para colocar el marcador</p><div class="row"><button type="button" onclick="confirmExactDestination()">Guardar ubicación</button><button type="button" class="s" onclick="closeM()">Cancelar</button></div>`);
  let selected=null;const mapPick=L.map('choose-map').setView(start,16);window._rutaPickMap=mapPick;
  L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',{subdomains:'abcd',maxZoom:20,attribution:'© OpenStreetMap · CARTO'}).addTo(mapPick);
  let pin=L.marker(start,{draggable:true}).addTo(mapPick);const update=coords=>{selected={lat:coords.lat,lng:coords.lng};pin.setLatLng(coords);$('#choose-msg').textContent='Ubicación seleccionada: '+coords.lat.toFixed(6)+', '+coords.lng.toFixed(6)};
  mapPick.on('click',ev=>update(ev.latlng));pin.on('dragend',()=>update(pin.getLatLng()));
  if(form.elements.lat.value&&form.elements.lng.value)update({lat:+form.elements.lat.value,lng:+form.elements.lng.value});
- window.confirmExactDestination=()=>{if(!selected)return alert('Primero toca en el mapa el punto de entrega.');form.elements.lat.value=selected.lat;form.elements.lng.value=selected.lng;$('#ads').className='ok';$('#ads').textContent='📍 Punto exacto confirmado en el mapa';closeM()};
+ window.confirmExactDestination=()=>{if(!selected)return alert('Primero toca en el mapa el punto de entrega.');form.elements.lat.value=selected.lat;form.elements.lng.value=selected.lng;$('#ads').dataset.state='ok';$('#ads').textContent='Punto de entrega confirmado manualmente en el mapa';window.RutaDirecciones?.saveConfirmed(field.value,municipioActivo(),selected.lat,selected.lng);closeM()};
  requestAnimationFrame(()=>mapPick.invalidateSize());
 }
 async function loadO(){const{data}=await sb.from('orders').select('id,type,client_name,client_phone,address,description,total,status,courier_id,created_at').neq('status','entregado').or(`courier_id.eq.${me.id},and(courier_id.is.null,status.eq.pendiente)`).order('created_at');
