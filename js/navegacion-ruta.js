@@ -25,16 +25,18 @@ function setVoice(s){s.voice=!s.voice;const b=el('rn-voice');if(b)b.textContent=
 function drawUI(title){
  const shell=document.createElement('section');shell.id='rn-shell';shell.setAttribute('role','dialog');shell.setAttribute('aria-modal','true');shell.setAttribute('aria-label','Navegación RUTA CUPISSA');
  shell.innerHTML=`<div class="rn-top"><div class="rn-brand"><strong>RUTA CUPISSA</strong><span>Modo conducción · Moto / carro</span></div><span id="rn-follow-status" class="rn-follow-status">GPS EN SEGUIMIENTO</span><button type="button" id="rn-close" aria-label="Cerrar navegación">✕ Cerrar</button></div>
- <div id="rn-map" role="application" aria-label="Mapa del trayecto"><div class="rn-gps-indicator" id="rn-gps-indicator">GPS: esperando ubicación</div><div class="rn-map-warning" id="rn-map-warning" hidden>El proveedor del mapa no respondió. La ruta y el GPS pueden seguir funcionando.</div></div>
+ <div id="rn-map" role="application" aria-label="Mapa del trayecto"><div class="rn-view-indicator" id="rn-view-indicator">VISTA DE CONDUCCIÓN · ESPERANDO RUMBO</div><div class="rn-gps-indicator" id="rn-gps-indicator">GPS: esperando ubicación</div><div class="rn-map-warning" id="rn-map-warning" hidden>El proveedor del mapa no respondió. La ruta y el GPS pueden seguir funcionando.</div></div>
  <div class="rn-panel"><div class="rn-destination"><span>DESTINO</span><strong>${escapeHTML(title)}</strong></div><div class="rn-maneuver"><div id="rn-arrow" aria-hidden="true">➜</div><div><div id="rn-next" aria-live="polite">Preparando mapa…</div><div id="rn-info">GPS y ruta por inicializar</div></div></div><div class="rn-progress"><div id="rn-progress-bar"></div></div><div class="rn-signal" id="rn-signal">La precisión del GPS puede variar según el dispositivo.</div><div id="rn-status" class="rn-status" aria-live="polite">Esperando ubicación…</div>
- <div class="rn-actions"><button type="button" id="rn-voice">Silenciar voz</button><button type="button" id="rn-repeat">Repetir</button><button type="button" id="rn-center">Seguimiento activo</button><button type="button" id="rn-recalc">Recalcular</button><button type="button" id="rn-point">Corregir destino</button></div>
- <small class="rn-caution">Mapa con rumbo indicado por el vehículo, vista norte arriba. Ruta orientativa sin tráfico en vivo. Respeta las señales de tránsito. La voz y el GPS pueden detenerse si se bloquea el teléfono. No manipules la pantalla mientras conduces.</small></div>`;
+ <div class="rn-actions"><button type="button" id="rn-voice">Silenciar voz</button><button type="button" id="rn-repeat">Repetir</button><button type="button" id="rn-center">Centrar · Seguir ruta</button><button type="button" id="rn-orient">Rumbo ↑</button><button type="button" id="rn-recalc">Recalcular</button><button type="button" id="rn-point">Corregir destino</button></div>
+ <small class="rn-caution">Vista de conducción 2D orientada según el rumbo del GPS cuando está disponible. Ruta orientativa sin tráfico en vivo. Respeta las señales de tránsito. La voz y el GPS pueden detenerse si se bloquea el teléfono. No manipules la pantalla mientras conduces.</small></div>`;
  document.body.appendChild(shell);
  el('rn-close').onclick=close;
  const name=el('rn-follow-status');if(name)name.textContent='GPS EN SEGUIMIENTO';
 }
 function setupMap(s){if(!window.L)throw Error('No se pudo cargar Leaflet. Revisa la conexión a internet.');
  s.map=L.map('rn-map',{zoomControl:false,preferCanvas:true,scrollWheelZoom:true,zoomSnap:0.5,zoomAnimation:true}).setView([10.9639,-74.7964],12);
+ // El giro solo se aplica al mapa de navegación; no afecta al mapa del administrador.
+ s.map.on('move zoom resize',()=>updateOrientation(s));
  L.control.zoom({position:'topright'}).addTo(s.map);
  window.RutaMapa.attach(s.map);
  s.target=L.marker([s.destination.lat,s.destination.lng],{title:'Destino'}).addTo(s.map).bindPopup('Destino: '+escapeHTML(s.title));
@@ -52,7 +54,8 @@ function setupMap(s){if(!window.L)throw Error('No se pudo cargar Leaflet. Revisa
  s.map.on('zoomend',()=>{if(userGesture){pauseFollow(s);userGesture=false;}});
  s.map.on('click',ev=>{if(!s.picking)return;s.destination=point(ev.latlng.lat,ev.latlng.lng);s.target.setLatLng(ev.latlng);s.picking=false;s.needsPick=false;el('rn-point').textContent='Corregir destino';report(s,'Destino seleccionado en el mapa. Recalculando…');compute(s,true)});
  el('rn-voice').onclick=()=>setVoice(s);el('rn-repeat').onclick=()=>say(s,s.lastText||'Continúa siguiendo la ruta',true);
- el('rn-center').onclick=()=>{s.follow=true;s.hasCentered=false;updateFollowButton(s);if(s.position){centerCamera(s,s.displayPosition||s.position,true);report(s,'Seguimiento activo: el mapa acompaña la posición GPS.');}else report(s,'Esperando ubicación del GPS. Comprueba los permisos del navegador.');};
+ el('rn-center').onclick=()=>{s.follow=true;s.headingUp=true;s.hasCentered=false;updateFollowButton(s);updateOrientation(s);if(s.position){centerCamera(s,s.displayPosition||s.position,true);report(s,'Vista de conducción centrada: el mapa seguirá tu moto o carro.');}else report(s,'Esperando ubicación del GPS. Comprueba los permisos del navegador.');};
+ el('rn-orient').onclick=()=>{s.headingUp=!s.headingUp;updateOrientation(s);if(s.follow&&s.position)centerCamera(s,s.displayPosition||s.position,true);};
  el('rn-recalc').onclick=()=>compute(s,true);
  el('rn-point').onclick=()=>{s.picking=!s.picking;el('rn-point').textContent=s.picking?'Toca el punto en el mapa':'Corregir destino';report(s,s.picking?'Toca el lugar exacto de entrega sobre el mapa.':'Selección cancelada.')};
 }
@@ -100,17 +103,40 @@ function pauseFollow(s){
  s.follow=false;updateFollowButton(s);
  report(s,'Moviste el mapa. Pulsa «Reanudar seguimiento» para centrarlo otra vez.');
 }
+// Vista rumbo-arriba: girar la capa gráfica de Leaflet conservando sus coordenadas.
+// Leaflet controla `transform` para mover el mapa: usar la propiedad CSS `rotate`
+// separada impide sobrescribir esos desplazamientos.
+function updateOrientation(s){
+ if(!s.map)return;
+ const pane=s.map.getPane('mapPane');if(!pane)return;
+ const heading=s.headingUp&&s.hasBearing&&Number.isFinite(s.lastBearing)?s.lastBearing:0;
+ const rect=s.map.getSize(),offset=L.DomUtil.getPosition(pane)||L.point(0,0);
+ // El eje de rotación debe coincidir con el centro visible, no con el origen
+ // de la capa (que Leaflet desplaza cuando el GPS mueve la cámara).
+ pane.style.transformOrigin=`${rect.x/2-offset.x}px ${rect.y/2-offset.y}px`;
+ pane.style.rotate=`${-heading}deg`;
+ const ui=el('rn-view-indicator');
+ if(ui)ui.textContent=s.headingUp?(s.hasBearing?`RUMBO ARRIBA · ${Math.round(heading)}°`:'VISTA DE CONDUCCIÓN · ESPERANDO RUMBO GPS'):'NORTE ARRIBA';
+ const btn=el('rn-orient');if(btn){btn.textContent=s.headingUp?'Rumbo ↑':'Norte ↑';btn.setAttribute('aria-pressed',String(s.headingUp));}
+}
 function centerCamera(s,p,force=false){
  if(!s.map||!s.follow||!valid(p))return;
- const zoom=s.map.getZoom();let target=L.latLng(p.lat,p.lng);if(s.hasBearing&&Number.isFinite(s.lastBearing)&&zoom>=16){const bearingRadians=rad(s.lastBearing),ahead=75;const offset=s.map.project(target,zoom).add(L.point(Math.sin(bearingRadians)*ahead,-Math.cos(bearingRadians)*ahead));target=s.map.unproject(offset,zoom);}
- const center=s.map.getCenter(),dist=s.map.distance(center,target);
- // Recobrar el zoom de navegación si el mapa aún estaba mostrando una zona amplia.
- if(force||!s.hasCentered||zoom<17){
-  s.map.setView(target,Math.max(17,zoom),{animate:false});s.hasCentered=true;
- } else if(dist>1.8){
-  // panTo no dispara acciones de usuario. Anima la cámara ligeramente y evita saltos.
+ const zoom=18, mapSize=s.map.getSize();
+ // Mostrar más vía por delante: posición del conductor cerca del tercio inferior.
+ // Solo usar anticipación cuando conocemos el rumbo; nunca inventar un heading.
+ let target=L.latLng(p.lat,p.lng);
+ if(s.headingUp&&s.hasBearing&&Number.isFinite(s.lastBearing)){
+  const r=rad(s.lastBearing),ahead=Math.min(145,Math.max(45,mapSize.y*.23));
+  const pixel=s.map.project(target,zoom).add(L.point(Math.sin(r)*ahead,-Math.cos(r)*ahead));
+  target=s.map.unproject(pixel,zoom);
+ }
+ const center=s.map.getCenter();
+ if(force||!s.hasCentered||Math.abs(s.map.getZoom()-zoom)>.01){
+  s.map.setView(target,zoom,{animate:false});s.hasCentered=true;
+ }else if(s.map.distance(center,target)>1.5){
   s.map.panTo(target,{animate:false});
  }
+ updateOrientation(s);
 }
 function bearing(a,b){const y=Math.sin(rad(b.lng-a.lng))*Math.cos(rad(b.lat));const x=Math.cos(rad(a.lat))*Math.sin(rad(b.lat))-Math.sin(rad(a.lat))*Math.cos(rad(b.lat))*Math.cos(rad(b.lng-a.lng));return (Math.atan2(y,x)*180/Math.PI+360)%360;}
 function moveMarker(s,position,accuracy){
@@ -129,6 +155,7 @@ function moveMarker(s,position,accuracy){
  const start=performance.now(),duration=smooth?Math.min(1250,Math.max(480,gap*42)):0;
  const angle=Number.isFinite(s.heading)?s.heading:(gap>6&&accuracy<=65?bearing(from,position):s.lastBearing||0);
  s.lastBearing=angle;if(Number.isFinite(s.heading)||(gap>6&&accuracy<=65))s.hasBearing=true;
+ updateOrientation(s);
  const glyph=s.positionMarker.getElement()?.querySelector('.rn-driver-direction');
  if(glyph)glyph.style.setProperty('--rn-heading',angle+'deg');
  const animate=now=>{
@@ -197,7 +224,7 @@ async function open(order,options={}){
  const source=(order?.dest_lat!=null&&order?.dest_lng!=null)?point(order.dest_lat,order.dest_lng):null;
  drawUI(address);
  const hasDestination=valid(source);
- const s=active={title:address,destination:hasDestination?source:point(10.9639,-74.7964),position:null,accuracy:999,voice:true,follow:true,hasCentered:false,programmaticMove:false,displayPosition:null,lastBearing:0,hasBearing:false,frame:null,heading:null,gps:null,route:null,poly:null,loading:false,pending:false,lastCalc:0,progress:0,spoken:new Set(),offCount:0,arrived:false,lastText:'',abort:null,map:null,picking:false,needsPick:!hasDestination};
+ const s=active={title:address,destination:hasDestination?source:point(10.9639,-74.7964),position:null,accuracy:999,voice:true,follow:true,headingUp:true,hasCentered:false,programmaticMove:false,displayPosition:null,lastBearing:0,hasBearing:false,frame:null,heading:null,gps:null,route:null,poly:null,loading:false,pending:false,lastCalc:0,progress:0,spoken:new Set(),offCount:0,arrived:false,lastText:'',abort:null,map:null,picking:false,needsPick:!hasDestination};
  if(!voiceAvailable()){s.voice=false;el('rn-voice').disabled=true;el('rn-voice').textContent='Voz no disponible'}
  try{setupMap(s);updateFollowButton(s);requestAnimationFrame(()=>s.map?.invalidateSize())}catch(err){instruction(err.message);return}
  if(options.admin){report(s,'Vista administrativa: mismo mapa que utiliza el domiciliario. Para ver su GPS, consulta Equipo y mapa.');instruction('Destino del servicio');if(hasDestination)s.map.setView([source.lat,source.lng],16);return;}
@@ -233,15 +260,17 @@ const css=document.createElement('style');css.textContent=`
 #rn-shell button:hover{background:#bc175f}#rn-shell button:focus-visible{outline:3px solid #e91e78;outline-offset:2px}
 #rn-shell .rn-top button{background:#35293b;border:1px solid #5d4055}
 #rn-map{flex:1;min-height:190px;background:#e5e8e4;position:relative}
-#rn-map .rn-gps-indicator{position:absolute;top:14px;left:14px;z-index:850;background:#fff;padding:9px 13px;border-radius:24px;box-shadow:0 4px 16px #16121c33;font-size:12px;font-weight:800;color:#165c46}
+#rn-map .rn-gps-indicator{position:absolute;top:51px;left:14px;z-index:850;background:#fff;padding:9px 13px;border-radius:24px;box-shadow:0 4px 16px #16121c33;font-size:12px;font-weight:800;color:#165c46}
 #rn-map .rn-gps-indicator[data-quality="baja"]{color:#a43d20}
-#rn-map .rn-map-warning{position:absolute;top:60px;left:14px;z-index:850;background:#fff0dd;padding:10px;border-radius:10px;max-width:300px;font-size:12px}
+#rn-map .rn-view-indicator{position:absolute;top:10px;left:14px;z-index:850;background:#18131ce8;color:#fff;padding:9px 12px;border-radius:12px;font-size:11px;font-weight:800;letter-spacing:.35px;pointer-events:none}
+#rn-map .leaflet-map-pane{transition:rotate .28s ease-out;will-change:rotate}
+#rn-map .rn-map-warning{position:absolute;top:94px;left:14px;z-index:850;background:#fff0dd;padding:10px;border-radius:10px;max-width:300px;font-size:12px}
 #rn-map .rn-map-warning[hidden]{display:none}
 .rn-driver-icon{background:transparent!important;border:0!important}
 .rn-driver-direction{position:relative;display:grid;place-items:center;width:44px;height:44px;background:#19131e;border:4px solid #fff;border-radius:14px 14px 16px 16px;box-shadow:0 4px 16px #0007;transform:rotate(var(--rn-heading,0deg));transition:transform .3s linear}
 .rn-driver-direction:before{content:'';position:absolute;top:-17px;left:11px;border-left:7px solid transparent;border-right:7px solid transparent;border-bottom:16px solid #19131e}
 .rn-driver-core{width:13px;height:13px;border-radius:50%;background:#f4699a;border:2px solid #fff}
-#rn-shell .rn-panel{padding:12px 18px 14px;background:#fff;box-shadow:0 -7px 25px #1c11231d;max-height:49vh;overflow-y:auto;flex-shrink:0;border-top:3px solid #f4699a}
+#rn-shell .rn-panel{padding:10px 18px 12px;background:#fff;box-shadow:0 -7px 25px #1c11231d;max-height:37vh;overflow-y:auto;flex-shrink:0;border-top:3px solid #f4699a}
 #rn-shell .rn-destination{display:flex;gap:10px;align-items:baseline;font-size:12px;color:#786974;white-space:normal}#rn-shell .rn-destination span{font-size:10px;font-weight:800;letter-spacing:1px}#rn-shell .rn-destination strong{color:#241822;overflow-wrap:anywhere;font-size:13px}
 #rn-shell .rn-maneuver{display:flex;align-items:center;gap:14px;margin:10px 0}#rn-arrow{font-size:44px;font-weight:800;color:#e91e78;line-height:1;flex:0 0 50px}
 #rn-next{font-size:22px;line-height:1.2;font-weight:800;color:#201724}#rn-info{font-size:13px;color:#665761;margin-top:5px}
@@ -251,7 +280,7 @@ const css=document.createElement('style');css.textContent=`
 #rn-shell .rn-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:9px}
 #rn-shell .rn-actions button{background:#2b202e}#rn-shell #rn-center[aria-pressed="true"]{background:#217a62}
 #rn-shell .rn-caution{display:block;color:#796b77;font-size:11px;line-height:1.5;margin-top:10px}
-@media(max-width:600px){#rn-shell .rn-top{padding:9px 12px;min-height:57px}#rn-shell .rn-brand strong{font-size:14px}#rn-shell .rn-follow-status{display:none}#rn-next{font-size:18px}#rn-shell .rn-panel{max-height:49vh;padding:10px 12px}#rn-shell .rn-actions button{padding:10px;font-size:12px}#rn-shell .rn-maneuver{margin:7px 0}}
+@media(max-width:600px){#rn-shell .rn-top{padding:9px 12px;min-height:57px}#rn-shell .rn-brand strong{font-size:14px}#rn-shell .rn-follow-status{display:none}#rn-next{font-size:18px}#rn-shell .rn-panel{max-height:36vh;padding:9px 12px}#rn-shell .rn-actions button{padding:9px;font-size:12px}#rn-shell .rn-maneuver{margin:7px 0}}
 `;document.head.appendChild(css);
 window.RutaNavegacion={startOrder,open,stop:close};
 })();
